@@ -69,6 +69,7 @@ We recommend using a PostgreSQL database. For MySQL check [MySQL setup guide](da
 ## 3. Redis
 
 Redis is automatically installed, when installing Gitlab. But some Configuration is needed.
+The following steps must be done as superuser!
 
     # Enable Redis socket
     echo 'unixsocket /var/run/redis/redis.sock' >> /usr/local/etc/redis.conf
@@ -89,6 +90,7 @@ Redis is automatically installed, when installing Gitlab. But some Configuration
 
 ### Configure It
 
+    # You need to be root user
     # Become git user
     su git
 
@@ -135,7 +137,7 @@ GitLab Shell is an SSH access and repository management software developed speci
     cd /usr/local/www/gitlab
 
     # Run the installation task for gitlab-shell (replace `REDIS_URL` if needed):
-    rake gitlab:shell:install[v2.6.3] REDIS_URL=unix:/var/run/redis/redis.sock RAILS_ENV=production
+    rake gitlab:shell:install REDIS_URL=unix:/var/run/redis/redis.sock RAILS_ENV=production
 
     # By default, the gitlab-shell config is generated from your main GitLab config.
     # You can review (and modify) the gitlab-shell config as follows:
@@ -147,7 +149,7 @@ GitLab Shell is an SSH access and repository management software developed speci
   
 ### Initialize Database and Activate Advanced Features
 
-    # make sure you are still using the git user
+    # make sure you are still using the git user and in /usr/local/www/gitlab
     rake gitlab:setup RAILS_ENV=production
 
     # Type 'yes' to create the database tables.
@@ -157,6 +159,12 @@ GitLab Shell is an SSH access and repository management software developed speci
 **Note:** You can set the Administrator/root password by supplying it in environmental variable `GITLAB_ROOT_PASSWORD` as seen below. If you don't set the password (and it is set to the default one) please wait with exposing GitLab to the public internet until the installation is done and you've logged into the server the first time. During the first login you'll be forced to change the default password.
 
     rake gitlab:setup RAILS_ENV=production GITLAB_ROOT_PASSWORD=yourpassword
+
+### Secure secrets.yml
+
+The `secrets.yml` file stores encryption keys for sessions and secure variables.
+Backup `secrets.yml` someplace safe, but don't store it in the same place as your database backups.
+Otherwise your secrets are exposed if one of your backups is compromised.
 
 ### Check Application Status
 
