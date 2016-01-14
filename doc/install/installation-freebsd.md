@@ -77,7 +77,7 @@ Redis is automatically installed, when installing Gitlab. But some Configuration
     echo 'unixsocketperm 770' >> /usr/local/etc/redis.conf
 
     # Allow Redis to be started
-    echo 'redis_enable="YES"' >> /etc/rc.conf
+    sysrc redis_enable=YES
 
     # Activate the changes to redis.conf
     service redis restart
