@@ -127,25 +127,6 @@ The following steps must be done as superuser!
     # Change 'secure password' with the value you have given to $password
     # You can keep the double quotes around the password
     vi config/database.yml
-
-### Install GitLab Shell
-
-GitLab Shell is an SSH access and repository management software developed specially for GitLab.
-
-    # Become git user and go into the installation path
-    su git
-    cd /usr/local/www/gitlab
-
-    # Run the installation task for gitlab-shell (replace `REDIS_URL` if needed):
-    rake gitlab:shell:install REDIS_URL=unix:/var/run/redis/redis.sock RAILS_ENV=production
-
-    # By default, the gitlab-shell config is generated from your main GitLab config.
-    # You can review (and modify) the gitlab-shell config as follows:
-    vi /home/git/gitlab-shell/config.yml
-
-**Note:** If you want to use HTTPS, see [Using HTTPS](#using-https) for the additional steps.
-
-**Note:** Make sure your hostname can be resolved on the machine itself by either a proper DNS record or an additional line in /etc/hosts ("127.0.0.1  hostname"). This might be necessary for example if you set up gitlab behind a reverse proxy. If the hostname cannot be resolved, the final installation check will fail with "Check GitLab API access: FAILED. code: 401" and pushing commits will be rejected with "[remote rejected] master -> master (hook declined)".  
   
 ### Initialize Database and Activate Advanced Features
 
