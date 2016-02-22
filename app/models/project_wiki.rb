@@ -12,6 +12,7 @@ class ProjectWiki
   # Returns a string describing what went wrong after
   # an operation fails.
   attr_reader :error_message
+  attr_reader :project
 
   def initialize(project, user = nil)
     @project = project
@@ -36,6 +37,10 @@ class ProjectWiki
 
   def http_url_to_repo
     [Gitlab.config.gitlab.url, "/", path_with_namespace, ".git"].join('')
+  end
+
+  def wiki_base_path
+    ["/", @project.path_with_namespace, "/wikis"].join('')
   end
 
   # Returns the Gollum::Wiki object.
@@ -118,7 +123,7 @@ class ProjectWiki
   end
 
   def repository
-    Repository.new(path_with_namespace, default_branch, @project)
+    Repository.new(path_with_namespace, @project)
   end
 
   def default_branch

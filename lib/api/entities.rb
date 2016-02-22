@@ -49,7 +49,7 @@ module API
       expose :enable_ssl_verification
     end
 
-    class ForkedFromProject < Grape::Entity
+    class BasicProjectDetails < Grape::Entity
       expose :id
       expose :name, :name_with_namespace
       expose :path, :path_with_namespace
@@ -67,11 +67,12 @@ module API
       expose :shared_runners_enabled
       expose :creator_id
       expose :namespace
-      expose :forked_from_project, using: Entities::ForkedFromProject, if: lambda{ |project, options| project.forked? }
+      expose :forked_from_project, using: Entities::BasicProjectDetails, if: lambda{ |project, options| project.forked? }
       expose :avatar_url
       expose :star_count, :forks_count
       expose :open_issues_count, if: lambda { |project, options| project.issues_enabled? && project.default_issues_tracker? }
       expose :runners_token, if: lambda { |_project, options| options[:user_can_admin_project] }
+      expose :public_builds
     end
 
     class ProjectMember < UserBasic
@@ -175,6 +176,7 @@ module API
       expose :work_in_progress?, as: :work_in_progress
       expose :milestone, using: Entities::Milestone
       expose :merge_when_build_succeeds
+      expose :merge_status
     end
 
     class MergeRequestChanges < MergeRequest
@@ -365,6 +367,60 @@ module API
 
     class TriggerRequest < Grape::Entity
       expose :id, :variables
+    end
+
+    class Runner < Grape::Entity
+      expose :id
+      expose :description
+      expose :active
+      expose :is_shared
+      expose :name
+    end
+
+    class RunnerDetails < Runner
+      expose :tag_list
+      expose :version, :revision, :platform, :architecture
+      expose :contacted_at
+      expose :token, if: lambda { |runner, options| options[:current_user].is_admin? || !runner.is_shared? }
+      expose :projects, with: Entities::BasicProjectDetails do |runner, options|
+        if options[:current_user].is_admin?
+          runner.projects
+        else
+          options[:current_user].authorized_projects.where(id: runner.projects)
+        end
+      end
+    end
+
+    class BuildArtifactFile < Grape::Entity
+      expose :filename, :size
+    end
+
+    class Build < Grape::Entity
+      expose :id, :status, :stage, :name, :ref, :tag, :coverage
+      expose :created_at, :started_at, :finished_at
+      expose :user, with: User
+      # TODO: download_url in Ci:Build model is an GitLab Web Interface URL, not API URL. We should think on some API
+      #       for downloading of artifacts (see: https://gitlab.com/gitlab-org/gitlab-ce/issues/4255)
+      expose :download_url do |repo_obj, options|
+        if options[:user_can_download_artifacts]
+          repo_obj.artifacts_download_url
+        end
+      end
+      expose :artifacts_file, using: BuildArtifactFile, if: -> (build, opts) { build.artifacts? }
+      expose :commit, with: RepoCommit do |repo_obj, _options|
+        if repo_obj.respond_to?(:commit)
+          repo_obj.commit.commit_data
+        end
+      end
+      expose :runner, with: Runner
+    end
+
+    class Trigger < Grape::Entity
+      expose :token, :created_at, :updated_at, :deleted_at, :last_used
+    end
+
+    class Variable < Grape::Entity
+      expose :key, :value
     end
   end
 end

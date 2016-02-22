@@ -16,6 +16,8 @@ class Dispatcher
     shortcut_handler = null
 
     switch page
+      when 'explore:projects:index', 'explore:projects:starred', 'explore:projects:trending'
+        Dashboard.init()
       when 'projects:issues:index'
         Issues.init()
         shortcut_handler = new ShortcutsNavigation()
@@ -58,7 +60,7 @@ class Dispatcher
         shortcut_handler = new ShortcutsNavigation()
         MergeRequests.init()
       when 'dashboard:show', 'root:show'
-        new Dashboard()
+        Dashboard.init()
       when 'dashboard:activity'
         new Activities()
       when 'dashboard:projects:starred'
@@ -87,7 +89,6 @@ class Dispatcher
         new GroupAvatar()
       when 'projects:tree:show'
         new TreeView()
-        shortcut_handler = new ShortcutsTree()
       when 'projects:find_file:show'
         shortcut_handler = true
       when 'projects:blob:show'
@@ -101,6 +102,8 @@ class Dispatcher
         shortcut_handler = true
       when 'projects:forks:new'
         new ProjectFork()
+      when 'projects:artifacts:browse'
+        new BuildArtifacts()
       when 'users:show'
         new User()
         new Activities()

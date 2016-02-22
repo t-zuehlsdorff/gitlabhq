@@ -12,7 +12,7 @@ configuration from the developer. To overcome this we will be using the
 official [PHP docker image][php-hub] that can be found in Docker Hub.
 
 This will allow us to test PHP projects against different versions of PHP.
-However, not everything is plug 'n' play, you still need to onfigure some
+However, not everything is plug 'n' play, you still need to configure some
 things manually.
 
 As with every build, you need to create a valid `.gitlab-ci.yml` describing the
@@ -97,7 +97,7 @@ image: php:5.6
 
 before_script:
 # Install dependencies
-- ci/docker_install.sh > /dev/null
+- bash ci/docker_install.sh > /dev/null
 
 test:app:
   script:
@@ -112,7 +112,7 @@ with a different docker image version and the runner will do the rest:
 ```yaml
 before_script:
 # Install dependencies
-- ci/docker_install.sh > /dev/null
+- bash ci/docker_install.sh > /dev/null
 
 # We test PHP5.6
 test:5.6:

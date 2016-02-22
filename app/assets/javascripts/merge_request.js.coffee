@@ -15,6 +15,8 @@ class @MergeRequest
     this.$('.show-all-commits').on 'click', =>
       this.showAllCommits()
 
+    @fixAffixScroll();
+
     @initTabs()
 
     # Prevent duplicate event bindings
@@ -27,6 +29,20 @@ class @MergeRequest
   # Local jQuery finder
   $: (selector) ->
     this.$el.find(selector)
+
+  fixAffixScroll: ->
+    fixAffix = ->
+      $discussion = $('.issuable-discussion')
+      $sidebar = $('.issuable-sidebar')
+      if $sidebar.hasClass('no-affix')
+        $sidebar.removeClass(['affix-top','affix'])
+      discussionHeight = $discussion.height()
+      sidebarHeight = $sidebar.height()
+      if sidebarHeight > discussionHeight
+        $discussion.height(sidebarHeight + 50)
+        $sidebar.addClass('no-affix')
+    $(window).on('resize', fixAffix)
+    fixAffix()
 
   initTabs: ->
     if @opts.action != 'new'
@@ -48,14 +64,15 @@ class @MergeRequest
     _this = @
     $('a.btn-close, a.btn-reopen').on 'click', (e) ->
       $this = $(this)
-      if $this.data('submitted')
-        return
-      e.preventDefault()
-      e.stopImmediatePropagation()
       shouldSubmit = $this.hasClass('btn-comment')
-      console.log("shouldSubmit")
+      if shouldSubmit && $this.data('submitted')
+        return
       if shouldSubmit
-        _this.submitNoteForm($this.closest('form'),$this)
+        if $this.hasClass('btn-comment-and-close') || $this.hasClass('btn-comment-and-reopen')
+          e.preventDefault()
+          e.stopImmediatePropagation()
+          _this.submitNoteForm($this.closest('form'),$this)
+
 
   submitNoteForm: (form, $button) =>
     noteText = form.find("textarea.js-note-text").val()

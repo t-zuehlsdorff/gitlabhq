@@ -1,4 +1,3 @@
-require 'banzai'
 require 'html/pipeline/filter'
 require 'html/pipeline/sanitization_filter'
 
@@ -9,14 +8,7 @@ module Banzai
     # Extends HTML::Pipeline::SanitizationFilter with a custom whitelist.
     class SanitizationFilter < HTML::Pipeline::SanitizationFilter
       def whitelist
-        # Descriptions are more heavily sanitized, allowing only a few elements.
-        # See http://git.io/vkuAN
-        if context[:inline_sanitization]
-          whitelist = LIMITED
-          whitelist[:elements] -= %w(pre code img ol ul li)
-        else
-          whitelist = super
-        end
+        whitelist = super
 
         customize_whitelist(whitelist)
 
@@ -43,6 +35,10 @@ module Banzai
 
         # Allow span elements
         whitelist[:elements].push('span')
+
+        # Allow abbr elements with title attribute
+        whitelist[:elements].push('abbr')
+        whitelist[:attributes]['abbr'] = %w(title)
 
         # Allow any protocol in `a` elements...
         whitelist[:protocols].delete('a')

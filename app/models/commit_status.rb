@@ -56,6 +56,8 @@ class CommitStatus < ActiveRecord::Base
   scope :ordered, -> { order(:ref, :stage_idx, :name) }
   scope :for_ref, ->(ref) { where(ref: ref) }
 
+  AVAILABLE_STATUSES = ['pending', 'running', 'success', 'failed', 'canceled']
+
   state_machine :status, initial: :pending do
     event :run do
       transition pending: :running
@@ -73,16 +75,16 @@ class CommitStatus < ActiveRecord::Base
       transition [:pending, :running] => :canceled
     end
 
-    after_transition pending: :running do |build, transition|
-      build.update_attributes started_at: Time.now
+    after_transition pending: :running do |commit_status|
+      commit_status.update_attributes started_at: Time.now
     end
 
-    after_transition any => [:success, :failed, :canceled] do |build, transition|
-      build.update_attributes finished_at: Time.now
+    after_transition any => [:success, :failed, :canceled] do |commit_status|
+      commit_status.update_attributes finished_at: Time.now
     end
 
-    after_transition [:pending, :running] => :success do |build, transition|
-      MergeRequests::MergeWhenBuildSucceedsService.new(build.commit.project, nil).trigger(build)
+    after_transition [:pending, :running] => :success do |commit_status|
+      MergeRequests::MergeWhenBuildSucceedsService.new(commit_status.commit.project, nil).trigger(commit_status)
     end
 
     state :pending, value: 'pending'
@@ -111,6 +113,10 @@ class CommitStatus < ActiveRecord::Base
     canceled? || success? || failed?
   end
 
+  def ignored?
+    failed? && allow_failure?
+  end
+
   def duration
     if started_at && finished_at
       finished_at - started_at
@@ -131,7 +137,11 @@ class CommitStatus < ActiveRecord::Base
     false
   end
 
-  def download_url
+  def artifacts_download_url
+    nil
+  end
+
+  def artifacts_browse_url
     nil
   end
 end

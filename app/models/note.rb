@@ -33,9 +33,11 @@ class Note < ActiveRecord::Base
   participant :author
 
   belongs_to :project
-  belongs_to :noteable, polymorphic: true
+  belongs_to :noteable, polymorphic: true, touch: true
   belongs_to :author, class_name: "User"
   belongs_to :updated_by, class_name: "User"
+
+  has_many :todos, dependent: :destroy
 
   delegate :name, to: :project, prefix: true
   delegate :name, :email, to: :author, prefix: true
@@ -244,7 +246,7 @@ class Note < ActiveRecord::Base
     prev_match_line = nil
     prev_lines = []
 
-    diff_lines.each do |line|
+    highlighted_diff_lines.each do |line|
       if line.type == "match"
         prev_lines.clear
         prev_match_line = line
@@ -261,7 +263,11 @@ class Note < ActiveRecord::Base
   end
 
   def diff_lines
-    @diff_lines ||= Gitlab::Diff::Parser.new.parse(diff.diff.lines.to_a)
+    @diff_lines ||= Gitlab::Diff::Parser.new.parse(diff.diff.lines)
+  end
+
+  def highlighted_diff_lines
+    Gitlab::Diff::Highlight.new(diff_lines).highlight
   end
 
   def discussion_id
@@ -371,6 +377,7 @@ class Note < ActiveRecord::Base
   #
   def set_award!
     return unless awards_supported? && contains_emoji_only?
+
     self.is_award = true
     self.note = award_emoji_name
   end
@@ -378,7 +385,7 @@ class Note < ActiveRecord::Base
   private
 
   def awards_supported?
-    noteable.kind_of?(Issue) || noteable.is_a?(MergeRequest)
+    (noteable.kind_of?(Issue) || noteable.is_a?(MergeRequest)) && !for_diff_line?
   end
 
   def contains_emoji_only?

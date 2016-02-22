@@ -7,6 +7,11 @@ module SharedProject
     @project.team << [@user, :master]
   end
 
+  step "project exists in some group namespace" do
+    @group = create(:group, name: 'some group')
+    @project = create(:project, namespace: @group)
+  end
+
   # Create a specific project called "Shop"
   step 'I own project "Shop"' do
     @project = Project.find_by(name: "Shop")
@@ -95,6 +100,18 @@ module SharedProject
 
   def current_project
     @project ||= Project.first
+  end
+
+  # ----------------------------------------
+  # Project permissions
+  # ----------------------------------------
+
+  step 'I am member of a project with a guest role' do
+    @project.team << [@user, Gitlab::Access::GUEST]
+  end
+
+  step 'I am member of a project with a reporter role' do
+    @project.team << [@user, Gitlab::Access::REPORTER]
   end
 
   # ----------------------------------------
@@ -223,11 +240,22 @@ module SharedProject
     end
   end
 
+  step 'The project is internal' do
+    @project.update(visibility_level: Gitlab::VisibilityLevel::INTERNAL)
+  end
+
+  step 'public access for builds is enabled' do
+    @project.update(public_builds: true)
+  end
+
+  step 'public access for builds is disabled' do
+    @project.update(public_builds: false)
+  end
+
   def user_owns_project(user_name:, project_name:, visibility: :private)
     user = user_exists(user_name, username: user_name.gsub(/\s/, '').underscore)
     project = Project.find_by(name: project_name)
     project ||= create(:empty_project, visibility, name: project_name, namespace: user.namespace)
     project.team << [user, :master]
   end
-
 end

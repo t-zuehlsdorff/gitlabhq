@@ -27,6 +27,7 @@ class Milestone < ActiveRecord::Base
 
   belongs_to :project
   has_many :issues
+  has_many :labels, through: :issues
   has_many :merge_requests
   has_many :participants, through: :issues, source: :assignee
 
@@ -34,7 +35,7 @@ class Milestone < ActiveRecord::Base
   scope :closed, -> { with_state(:closed) }
   scope :of_projects, ->(ids) { where(project_id: ids) }
 
-  validates :title, presence: true
+  validates :title, presence: true, uniqueness: { scope: :project_id }
   validates :project, presence: true
 
   strip_attributes :title
@@ -107,6 +108,19 @@ class Milestone < ActiveRecord::Base
     ((closed_items_count * 100) / total_items_count).abs
   rescue ZeroDivisionError
     0
+  end
+
+  # Returns the elapsed time (in percent) since the Milestone creation date until today.
+  # If the Milestone doesn't have a due_date then returns 0 since we can't calculate the elapsed time.
+  # If the Milestone is overdue then it returns 100%.
+  def percent_time_used
+    return 0 unless due_date
+    return 100 if expired?
+
+    duration = ((created_at - due_date.to_datetime) / 1.day)
+    days_elapsed = ((created_at - Time.now) / 1.day)
+
+    ((days_elapsed.to_f / duration) * 100).floor
   end
 
   def expires_at

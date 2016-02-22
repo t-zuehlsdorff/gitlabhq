@@ -81,7 +81,8 @@ class IssuableFinder
     elsif current_user && params[:authorized_only].presence && !current_user_related?
       @projects = current_user.authorized_projects.reorder(nil)
     else
-      @projects = ProjectsFinder.new.execute(current_user).reorder(nil)
+      @projects = ProjectsFinder.new.execute(current_user, group: group).
+        reorder(nil)
     end
   end
 
@@ -116,6 +117,20 @@ class IssuableFinder
 
   def filter_by_no_label?
     labels? && params[:label_name] == Label::None.title
+  end
+
+  def labels
+    return @labels if defined?(@labels)
+
+    if labels? && !filter_by_no_label?
+      @labels = Label.where(title: label_names)
+
+      if projects
+        @labels = @labels.where(project: projects)
+      end
+    else
+      @labels = Label.none
+    end
   end
 
   def assignee?
@@ -252,8 +267,6 @@ class IssuableFinder
           joins("LEFT OUTER JOIN label_links ON label_links.target_type = '#{klass.name}' AND label_links.target_id = #{klass.table_name}.id").
           where(label_links: { id: nil })
       else
-        label_names = params[:label_name].split(",")
-
         items = items.joins(:labels).where(labels: { title: label_names })
 
         if projects
@@ -263,6 +276,10 @@ class IssuableFinder
     end
 
     items
+  end
+
+  def label_names
+    params[:label_name].split(',')
   end
 
   def current_user_related?

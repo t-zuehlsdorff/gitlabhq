@@ -139,26 +139,33 @@
   %h2#navs Navigation
 
   %h4
-    %code .center-top-menu
+    %code .top-area
+  %p Holder for top page navigation. Includes navigation, search field, sorting and button
+
   .example
-    %ul.center-top-menu
-      %li.active
-        %a Open
-      %li
-        %a Closed
+    .top-area
+      %ul.nav-links
+        %li.active
+          %a Open
+        %li
+          %a Closed
+      .nav-controls
+        = text_field_tag 'sample', nil, class: 'form-control'
+        .dropdown
+          %button.dropdown-toggle.btn{type: 'button', 'data-toggle' => 'dropdown'}
+            %span Sort by name
+            %b.caret
+          %ul.dropdown-menu
+            %li
+              %a Sort by date
+
+        = link_to 'New issue', '#', class: 'btn btn-new'
 
   %h4
-    %code .btn-group.btn-group-next
+    %code .nav-links
+  %p Only nav links without button and search
   .example
-    %div.btn-group.btn-group-next
-      %a.btn.active Open
-      %a.btn Closed
-
-
-  %h4
-    %code .nav.nav-tabs
-  .example
-    %ul.nav.nav-tabs
+    %ul.nav-links
       %li.active
         %a Open
       %li

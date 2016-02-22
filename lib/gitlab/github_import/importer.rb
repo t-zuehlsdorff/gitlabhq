@@ -1,6 +1,8 @@
 module Gitlab
   module GithubImport
     class Importer
+      include Gitlab::ShellAdapter
+
       attr_reader :project, :client
 
       def initialize(project)
@@ -12,10 +14,7 @@ module Gitlab
       end
 
       def execute
-        import_issues
-        import_pull_requests
-
-        true
+        import_issues && import_pull_requests && import_wiki
       end
 
       private
@@ -34,6 +33,10 @@ module Gitlab
             end
           end
         end
+
+        true
+      rescue ActiveRecord::RecordInvalid => e
+        raise Projects::ImportService::Error, e.message
       end
 
       def import_pull_requests
@@ -48,6 +51,10 @@ module Gitlab
             import_comments_on_diff(pull_request.number, merge_request)
           end
         end
+
+        true
+      rescue ActiveRecord::RecordInvalid => e
+        raise Projects::ImportService::Error, e.message
       end
 
       def import_comments(issue_number, noteable)
@@ -64,6 +71,25 @@ module Gitlab
         comments.each do |raw_data|
           comment = CommentFormatter.new(project, raw_data)
           noteable.notes.create!(comment.attributes)
+        end
+      end
+
+      def import_wiki
+        unless project.wiki_enabled?
+          wiki = WikiFormatter.new(project)
+          gitlab_shell.import_repository(wiki.path_with_namespace, wiki.import_url)
+          project.update_attribute(:wiki_enabled, true)
+        end
+
+        true
+      rescue Gitlab::Shell::Error => e
+        # GitHub error message when the wiki repo has not been created,
+        # this means that repo has wiki enabled, but have no pages. So,
+        # we can skip the import.
+        if e.message !~ /repository not exported/
+          raise Projects::ImportService::Error, e.message
+        else
+          true
         end
       end
     end

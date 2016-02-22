@@ -15,7 +15,7 @@ class Repository
     Gitlab::Popen.popen(%W(find #{repository_downloads_path} -not -path #{repository_downloads_path} -mmin +120 -delete))
   end
 
-  def initialize(path_with_namespace, default_branch = nil, project = nil)
+  def initialize(path_with_namespace, project)
     @path_with_namespace = path_with_namespace
     @project = project
   end
@@ -23,13 +23,11 @@ class Repository
   def raw_repository
     return nil unless path_with_namespace
 
-    @raw_repository ||= begin
-      repo = Gitlab::Git::Repository.new(path_to_repo)
-      repo.autocrlf = :input
-      repo
-    rescue Gitlab::Git::Repository::NoRepository
-      nil
-    end
+    @raw_repository ||= Gitlab::Git::Repository.new(path_to_repo)
+  end
+
+  def update_autocrlf_option
+    raw_repository.autocrlf = :input if raw_repository.autocrlf != :input
   end
 
   # Return absolute path to repository
@@ -40,11 +38,18 @@ class Repository
   end
 
   def exists?
-    raw_repository
+    return false unless raw_repository
+
+    raw_repository.rugged
+    true
+  rescue Gitlab::Git::Repository::NoRepository
+    false
   end
 
   def empty?
-    raw_repository.empty?
+    return @empty unless @empty.nil?
+
+    @empty = cache.fetch(:empty?) { raw_repository.empty? }
   end
 
   #
@@ -57,11 +62,15 @@ class Repository
   # This method return true if repository contains some content visible in project page.
   #
   def has_visible_content?
-    !raw_repository.branches.empty?
+    return @has_visible_content unless @has_visible_content.nil?
+
+    @has_visible_content = cache.fetch(:has_visible_content?) do
+      raw_repository.branch_count > 0
+    end
   end
 
   def commit(id = 'HEAD')
-    return nil unless raw_repository
+    return nil unless exists?
     commit = Gitlab::Git::Commit.find(raw_repository, id)
     commit = Commit.new(commit, @project) if commit
     commit
@@ -78,7 +87,8 @@ class Repository
       offset: offset,
       # --follow doesn't play well with --skip. See:
       # https://gitlab.com/gitlab-org/gitlab-ce/issues/3574#note_3040520
-      follow: false
+      follow: false,
+      skip_merges: skip_merges
     }
 
     commits = Gitlab::Git::Commit.where(options)
@@ -184,8 +194,11 @@ class Repository
     cache.fetch(:"diverging_commit_counts_#{branch.name}") do
       # Rugged seems to throw a `ReferenceError` when given branch_names rather
       # than SHA-1 hashes
-      number_commits_behind = commits_between(branch.target, root_ref_hash).size
-      number_commits_ahead = commits_between(root_ref_hash, branch.target).size
+      number_commits_behind = raw_repository.
+        count_commits_between(branch.target, root_ref_hash)
+
+      number_commits_ahead = raw_repository.
+        count_commits_between(root_ref_hash, branch.target)
 
       { behind: number_commits_behind, ahead: number_commits_ahead }
     end
@@ -194,12 +207,6 @@ class Repository
   def cache_keys
     %i(size branch_names tag_names commit_count
        readme version contribution_guide changelog license)
-  end
-
-  def branch_cache_keys
-    branches.map do |branch|
-      :"diverging_commit_counts_#{branch.name}"
-    end
   end
 
   def build_cache
@@ -226,18 +233,58 @@ class Repository
     @branches = nil
   end
 
-  def expire_cache
+  def expire_cache(branch_name = nil)
     cache_keys.each do |key|
       cache.expire(key)
     end
 
-    expire_branch_cache
+    expire_branch_cache(branch_name)
+
+    # This ensures this particular cache is flushed after the first commit to a
+    # new repository.
+    expire_emptiness_caches if empty?
   end
 
-  def expire_branch_cache
-    branches.each do |branch|
-      cache.expire(:"diverging_commit_counts_#{branch.name}")
+  # Expires _all_ caches, including those that would normally only be expired
+  # under specific conditions.
+  def expire_all_caches!
+    expire_cache
+    expire_root_ref_cache
+    expire_emptiness_caches
+    expire_has_visible_content_cache
+  end
+
+  def expire_branch_cache(branch_name = nil)
+    # When we push to the root branch we have to flush the cache for all other
+    # branches as their statistics are based on the commits relative to the
+    # root branch.
+    if !branch_name || branch_name == root_ref
+      branches.each do |branch|
+        cache.expire(:"diverging_commit_counts_#{branch.name}")
+      end
+    # In case a commit is pushed to a non-root branch we only have to flush the
+    # cache for said branch.
+    else
+      cache.expire(:"diverging_commit_counts_#{branch_name}")
     end
+  end
+
+  def expire_root_ref_cache
+    cache.expire(:root_ref)
+    @root_ref = nil
+  end
+
+  # Expires the cache(s) used to determine if a repository is empty or not.
+  def expire_emptiness_caches
+    cache.expire(:empty?)
+    @empty = nil
+
+    expire_has_visible_content_cache
+  end
+
+  def expire_has_visible_content_cache
+    cache.expire(:has_visible_content?)
+    @has_visible_content = nil
   end
 
   def rebuild_cache
@@ -477,7 +524,7 @@ class Repository
   end
 
   def root_ref
-    @root_ref ||= raw_repository.root_ref
+    @root_ref ||= cache.fetch(:root_ref) { raw_repository.root_ref }
   end
 
   def commit_dir(user, path, message, branch)
@@ -576,6 +623,34 @@ class Repository
     end
   end
 
+  def revert(user, commit, base_branch, target_branch = nil)
+    source_sha    = find_branch(base_branch).target
+    target_branch ||= base_branch
+    args          = [commit.id, source_sha]
+    args          << { mainline: 1 } if commit.merge_commit?
+
+    revert_index = rugged.revert_commit(*args)
+    return false if revert_index.conflicts?
+
+    tree_id = revert_index.write_tree(rugged)
+    return false unless diff_exists?(source_sha, tree_id)
+
+    commit_with_hooks(user, target_branch) do |ref|
+      committer = user_to_committer(user)
+      source_sha = Rugged::Commit.create(rugged,
+        message: commit.revert_message,
+        author: committer,
+        committer: committer,
+        tree: tree_id,
+        parents: [rugged.lookup(source_sha)],
+        update_ref: ref)
+    end
+  end
+
+  def diff_exists?(sha1, sha2)
+    rugged.diff(sha1, sha2).size > 0
+  end
+
   def merged_to_root_ref?(branch_name)
     branch_commit = commit(branch_name)
     root_ref_commit = commit(root_ref)
@@ -588,7 +663,11 @@ class Repository
   end
 
   def merge_base(first_commit_id, second_commit_id)
+    first_commit_id = commit(first_commit_id).try(:id) || first_commit_id
+    second_commit_id = commit(second_commit_id).try(:id) || second_commit_id
     rugged.merge_base(first_commit_id, second_commit_id)
+  rescue Rugged::ReferenceError
+    nil
   end
 
   def is_ancestor?(ancestor_id, descendant_id)
@@ -598,7 +677,7 @@ class Repository
 
   def search_files(query, ref)
     offset = 2
-    args = %W(#{Gitlab.config.git.bin_path} grep -i -n --before-context #{offset} --after-context #{offset} -e #{query} #{ref || root_ref})
+    args = %W(#{Gitlab.config.git.bin_path} grep -i -I -n --before-context #{offset} --after-context #{offset} -e #{query} #{ref || root_ref})
     Gitlab::Popen.popen(args, path_to_repo).first.scrub.split(/^--$/)
   end
 
@@ -649,12 +728,15 @@ class Repository
   end
 
   def commit_with_hooks(current_user, branch)
+    update_autocrlf_option
+
     oldrev = Gitlab::Git::BLANK_SHA
     ref = Gitlab::Git::BRANCH_REF_PREFIX + branch
+    target_branch = find_branch(branch)
     was_empty = empty?
 
-    unless was_empty
-      oldrev = find_branch(branch).target
+    if !was_empty && target_branch
+      oldrev = target_branch.target
     end
 
     with_tmp_ref(oldrev) do |tmp_ref|
@@ -666,7 +748,7 @@ class Repository
       end
 
       GitHooksService.new.execute(current_user, path_to_repo, oldrev, newrev, ref) do
-        if was_empty
+        if was_empty || !target_branch
           # Create branch
           rugged.references.create(ref, newrev)
         else
@@ -681,6 +763,8 @@ class Repository
           end
         end
       end
+
+      newrev
     end
   end
 

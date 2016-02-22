@@ -12,7 +12,7 @@ further configuration instructions and details. Contributions are welcome.
 | Assembla 	| Project Management Software (Source Commits Endpoint) |
 | [Atlassian Bamboo CI](bamboo.md) | A continuous integration and build server |
 | Buildkite | Continuous integration and deployments |
-| Builds emails |	Email the builds status to a list of recipients |
+| [Builds emails](builds_emails.md) |	Email the builds status to a list of recipients |
 | Campfire | Simple web-based real-time group chat |
 | Custom Issue Tracker | Custom issue tracker |
 | Drone CI | Continuous Integration platform built on Docker, written in Go |
@@ -22,7 +22,7 @@ further configuration instructions and details. Contributions are welcome.
 | Gemnasium | Gemnasium monitors your project dependencies and alerts you about updates and security vulnerabilities |
 | [HipChat](hipchat.md) | Private group chat and IM |
 | [Irker (IRC gateway)](irker.md) | Send IRC messages, on update, to a list of recipients through an Irker gateway |
-| JIRA | Jira issue tracker |
+| [JIRA](jira.md) | JIRA issue tracker |
 | JetBrains TeamCity CI | A continuous integration and build server |
 | PivotalTracker | Project Management Software (Source Commits Endpoint) |
 | Pushover | Pushover makes it easy to get real-time notifications on your Android device, iPhone, iPad, and Desktop |

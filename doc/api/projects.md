@@ -29,6 +29,7 @@ GET /projects
 Parameters:
 
 - `archived` (optional) - if passed, limit by archived status
+- `visibility` (optional) - if passed, limit by visibility `public`, `internal`, `private`
 - `order_by` (optional) - Return requests ordered by `id`, `name`, `path`, `created_at`, `updated_at` or `last_activity_at` fields. Default is `created_at`
 - `sort` (optional) - Return requests sorted in `asc` or `desc` order. Default is `desc`
 - `search` (optional) - Return list of authorized projects according to a search criteria
@@ -79,7 +80,9 @@ Parameters:
     "avatar_url": "http://example.com/uploads/project/avatar/4/uploads/avatar.png",
     "shared_runners_enabled": true,
     "forks_count": 0,
-    "star_count": 0
+    "star_count": 0,
+    "runners_token": "b8547b1dc37721d05889db52fa2f02",
+    "public_builds": true
   },
   {
     "id": 6,
@@ -136,7 +139,8 @@ Parameters:
     "shared_runners_enabled": true,
     "forks_count": 0,
     "star_count": 0,
-    "runners_token": "b8547b1dc37721d05889db52fa2f02"
+    "runners_token": "b8547b1dc37721d05889db52fa2f02",
+    "public_builds": true
   }
 ]
 ```
@@ -152,6 +156,7 @@ GET /projects/owned
 Parameters:
 
 - `archived` (optional) - if passed, limit by archived status
+- `visibility` (optional) - if passed, limit by visibility `public`, `internal`, `private`
 - `order_by` (optional) - Return requests ordered by `id`, `name`, `path`, `created_at`, `updated_at` or `last_activity_at` fields. Default is `created_at`
 - `sort` (optional) - Return requests sorted in `asc` or `desc` order. Default is `desc`
 - `search` (optional) - Return list of authorized projects according to a search criteria
@@ -167,6 +172,7 @@ GET /projects/starred
 Parameters:
 
 - `archived` (optional) - if passed, limit by archived status
+- `visibility` (optional) - if passed, limit by visibility `public`, `internal`, `private`
 - `order_by` (optional) - Return requests ordered by `id`, `name`, `path`, `created_at`, `updated_at` or `last_activity_at` fields. Default is `created_at`
 - `sort` (optional) - Return requests sorted in `asc` or `desc` order. Default is `desc`
 - `search` (optional) - Return list of authorized projects according to a search criteria
@@ -182,6 +188,7 @@ GET /projects/all
 Parameters:
 
 - `archived` (optional) - if passed, limit by archived status
+- `visibility` (optional) - if passed, limit by visibility `public`, `internal`, `private`
 - `order_by` (optional) - Return requests ordered by `id`, `name`, `path`, `created_at`, `updated_at` or `last_activity_at` fields. Default is `created_at`
 - `sort` (optional) - Return requests sorted in `asc` or `desc` order. Default is `desc`
 - `search` (optional) - Return list of authorized projects according to a search criteria
@@ -420,6 +427,7 @@ Parameters:
 - `public` (optional) - if `true` same as setting visibility_level = 20
 - `visibility_level` (optional)
 - `import_url` (optional)
+- `public_builds` (optional)
 
 ### Create project for user
 
@@ -442,6 +450,7 @@ Parameters:
 - `public` (optional) - if `true` same as setting visibility_level = 20
 - `visibility_level` (optional)
 - `import_url` (optional)
+- `public_builds` (optional)
 
 ### Edit project
 
@@ -465,6 +474,7 @@ Parameters:
 - `snippets_enabled` (optional)
 - `public` (optional) - if `true` same as setting visibility_level = 20
 - `visibility_level` (optional)
+- `public_builds` (optional)
 
 On success, method returns 200 with the updated project. If parameters are
 invalid, 400 is returned.

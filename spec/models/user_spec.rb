@@ -91,6 +91,8 @@ describe User, models: true do
     it { is_expected.to have_many(:assigned_merge_requests).dependent(:destroy) }
     it { is_expected.to have_many(:identities).dependent(:destroy) }
     it { is_expected.to have_one(:abuse_report) }
+    it { is_expected.to have_many(:spam_logs).dependent(:destroy) }
+    it { is_expected.to have_many(:todos).dependent(:destroy) }
   end
 
   describe 'validations' do
@@ -118,37 +120,15 @@ describe User, models: true do
 
     it { is_expected.to validate_length_of(:bio).is_within(0..255) }
 
+    it_behaves_like 'an object with email-formated attributes', :email do
+      subject { build(:user) }
+    end
+
+    it_behaves_like 'an object with email-formated attributes', :public_email, :notification_email do
+      subject { build(:user).tap { |user| user.emails << build(:email, email: email_value) } }
+    end
+
     describe 'email' do
-      it 'accepts info@example.com' do
-        user = build(:user, email: 'info@example.com')
-        expect(user).to be_valid
-      end
-
-      it 'accepts info+test@example.com' do
-        user = build(:user, email: 'info+test@example.com')
-        expect(user).to be_valid
-      end
-
-      it "accepts o'reilly@example.com" do
-        user = build(:user, email: "o'reilly@example.com")
-        expect(user).to be_valid
-      end
-
-      it 'rejects test@test@example.com' do
-        user = build(:user, email: 'test@test@example.com')
-        expect(user).to be_invalid
-      end
-
-      it 'rejects mailto:test@example.com' do
-        user = build(:user, email: 'mailto:test@example.com')
-        expect(user).to be_invalid
-      end
-
-      it "rejects lol!'+=?><#$%^&*()@gmail.com" do
-        user = build(:user, email: "lol!'+=?><#$%^&*()@gmail.com")
-        expect(user).to be_invalid
-      end
-
       context 'when no signup domains listed' do
         before { allow(current_application_settings).to receive(:restricted_signup_domains).and_return([]) }
         it 'accepts any email' do
@@ -569,27 +549,39 @@ describe User, models: true do
     end
   end
 
-  describe :ldap_user? do
-    it "is true if provider name starts with ldap" do
-      user = create(:omniauth_user, provider: 'ldapmain')
-      expect( user.ldap_user? ).to be_truthy
+  context 'ldap synchronized user' do
+    describe :ldap_user? do
+      it 'is true if provider name starts with ldap' do
+        user = create(:omniauth_user, provider: 'ldapmain')
+        expect(user.ldap_user?).to be_truthy
+      end
+
+      it 'is false for other providers' do
+        user = create(:omniauth_user, provider: 'other-provider')
+        expect(user.ldap_user?).to be_falsey
+      end
+
+      it 'is false if no extern_uid is provided' do
+        user = create(:omniauth_user, extern_uid: nil)
+        expect(user.ldap_user?).to be_falsey
+      end
     end
 
-    it "is false for other providers" do
-      user = create(:omniauth_user, provider: 'other-provider')
-      expect( user.ldap_user? ).to be_falsey
+    describe :ldap_identity do
+      it 'returns ldap identity' do
+        user = create :omniauth_user
+        expect(user.ldap_identity.provider).not_to be_empty
+      end
     end
 
-    it "is false if no extern_uid is provided" do
-      user = create(:omniauth_user, extern_uid: nil)
-      expect( user.ldap_user? ).to be_falsey
-    end
-  end
+    describe '#ldap_block' do
+      let(:user) { create(:omniauth_user, provider: 'ldapmain', name: 'John Smith') }
 
-  describe :ldap_identity do
-    it "returns ldap identity" do
-      user = create :omniauth_user
-      expect(user.ldap_identity.provider).not_to be_empty
+      it 'blocks user flaging the action caming from ldap' do
+        user.ldap_block
+        expect(user.blocked?).to be_truthy
+        expect(user.ldap_blocked?).to be_truthy
+      end
     end
   end
 

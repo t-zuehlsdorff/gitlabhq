@@ -6,7 +6,7 @@
     .issue-title {
       margin-bottom: 5px;
       font-size: $list-font-size;
-      font-weight: bold;
+      font-weight: 600;
     }
 
     .issue-info {
@@ -49,11 +49,6 @@
 .issue-search-form {
   margin: 0;
   height: 24px;
-
-  .issue_search {
-    border: 1px solid #DDD !important;
-    background-color: #f4f4f4;
-  }
 }
 
 form.edit-issue {
@@ -68,10 +63,6 @@ form.edit-issue {
 .merge-request-id {
   display: inline-block;
   width: 3em;
-}
-
-.merge-request-info {
-  padding-left: 5px;
 }
 
 .merge-request-status {

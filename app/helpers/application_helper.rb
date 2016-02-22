@@ -118,12 +118,6 @@ module ApplicationHelper
     grouped_options_for_select(options, @ref || @project.default_branch)
   end
 
-  def emoji_autocomplete_source
-    # should be an array of strings
-    # so to_s can be called, because it is sufficient and to_json is too slow
-    Emoji.names.to_s
-  end
-
   # Define whenever show last push event
   # with suggestion to create MR
   def show_last_push_widget?(event)
@@ -169,18 +163,6 @@ module ApplicationHelper
     Gitlab.config.extra
   end
 
-  def search_placeholder
-    if @project && @project.persisted?
-      'Search in this project'
-    elsif @snippet || @snippets || @show_snippets
-      'Search snippets'
-    elsif @group && @group.persisted?
-      'Search in this group'
-    else
-      'Search'
-    end
-  end
-
   # Render a `time` element with Javascript-based relative date and tooltip
   #
   # time       - Time object
@@ -224,8 +206,7 @@ module ApplicationHelper
         file_content
       end
     else
-      GitHub::Markup.render(file_name, file_content).
-        force_encoding(file_content.encoding).html_safe
+      other_markup(file_name, file_content)
     end
   rescue RuntimeError
     simple_format(file_content)

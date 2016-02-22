@@ -1,6 +1,6 @@
 source "https://rubygems.org"
 
-gem 'rails', '4.2.4'
+gem 'rails', '4.2.5.1'
 gem 'rails-deprecated_sanitizer', '~> 1.0.3'
 
 # Responders respond_to and respond_with
@@ -18,10 +18,10 @@ gem "mysql2", '~> 0.3.16', group: :mysql
 gem "pg", '~> 0.18.2', group: :postgres
 
 # Authentication libraries
-gem 'devise',                 '~> 3.5.3'
+gem 'devise',                 '~> 3.5.4'
 gem 'devise-async',           '~> 0.9.0'
 gem 'doorkeeper',             '~> 2.2.0'
-gem 'omniauth',               '~> 1.2.2'
+gem 'omniauth',               '~> 1.3.1'
 gem 'omniauth-azure-oauth2',  '~> 0.0.6'
 gem 'omniauth-bitbucket',     '~> 0.0.2'
 gem 'omniauth-cas3',          '~> 1.1.2'
@@ -30,14 +30,15 @@ gem 'omniauth-github',        '~> 1.1.1'
 gem 'omniauth-gitlab',        '~> 1.0.0'
 gem 'omniauth-google-oauth2', '~> 0.2.0'
 gem 'omniauth-kerberos',      '~> 0.3.0', group: :kerberos
-gem 'omniauth-saml',          '~> 1.4.0'
+gem 'omniauth-saml',          '~> 1.4.2'
 gem 'omniauth-shibboleth',    '~> 1.2.0'
 gem 'omniauth-twitter',       '~> 1.2.0'
 gem 'omniauth_crowd',         '~> 2.2.0'
 gem 'rack-oauth2',            '~> 1.2.1'
 
-# reCAPTCHA protection
+# Spam and anti-bot protection
 gem 'recaptcha', require: 'recaptcha/rails'
+gem 'akismet', '~> 2.0'
 
 # Two-factor authentication
 gem 'devise-two-factor', '~> 2.0.0'
@@ -49,7 +50,7 @@ gem "browser", '~> 1.0.0'
 
 # Extracting information from a git repository
 # Provide access to Gitlab::Git library
-gem "gitlab_git", '~> 7.2.22'
+gem "gitlab_git", '~> 8.2'
 
 # LDAP Auth
 # GitLab fork with several improvements to original library. For full list of changes
@@ -103,7 +104,8 @@ gem 'asciidoctor',   '~> 1.5.2'
 gem 'rouge',         '~> 1.10.1'
 
 # See https://groups.google.com/forum/#!topic/ruby-security-ann/aSbgDiwb24s
-gem 'nokogiri', '1.6.7.1'
+# and https://groups.google.com/forum/#!topic/ruby-security-ann/Dy7YiKb_pMM
+gem 'nokogiri', '~> 1.6.7', '>= 1.6.7.2'
 
 # Diffs
 gem 'diffy', '~> 3.0.3'
@@ -178,6 +180,9 @@ gem "underscore-rails", "~> 1.8.0"
 gem "sanitize", '~> 2.0'
 gem 'babosa', '~> 1.0.2'
 
+# Sanitizes SVG input
+gem "loofah", "~> 2.0.3"
+
 # Protect against bruteforcing
 gem "rack-attack", '~> 4.3.1'
 
@@ -199,7 +204,7 @@ gem 'jquery-turbolinks', '~> 2.1.0'
 gem 'addressable',        '~> 2.3.8'
 gem 'bootstrap-sass',     '~> 3.3.0'
 gem 'font-awesome-rails', '~> 4.2'
-gem 'gitlab_emoji',       '~> 0.2.0'
+gem 'gitlab_emoji',       '~> 0.3.0'
 gem 'gon',                '~> 6.0.1'
 gem 'jquery-atwho-rails', '~> 1.3.2'
 gem 'jquery-rails',       '~> 4.0.0'
@@ -211,6 +216,9 @@ gem 'request_store',      '~> 1.2.0'
 gem 'select2-rails',      '~> 3.5.9'
 gem 'virtus',             '~> 1.0.1'
 gem 'net-ssh',            '~> 3.0.1'
+
+# Sentry integration
+gem 'sentry-raven'
 
 # Metrics
 group :metrics do
@@ -295,10 +303,7 @@ group :production do
   gem "gitlab_meta", '7.0'
 end
 
-gem "newrelic_rpm", '~> 3.9.4.245'
-gem 'newrelic-grape'
-
-gem 'octokit', '~> 3.7.0'
+gem 'octokit', '~> 3.8.0'
 
 gem "mail_room", "~> 0.6.1"
 

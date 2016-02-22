@@ -138,18 +138,16 @@ class User < ActiveRecord::Base
   has_many :assigned_merge_requests,  dependent: :destroy, foreign_key: :assignee_id, class_name: "MergeRequest"
   has_many :oauth_applications, class_name: 'Doorkeeper::Application', as: :owner, dependent: :destroy
   has_one  :abuse_report,             dependent: :destroy
+  has_many :spam_logs,                dependent: :destroy
   has_many :builds,                   dependent: :nullify, class_name: 'Ci::Build'
-
+  has_many :todos,                    dependent: :destroy
 
   #
   # Validations
   #
   validates :name, presence: true
-  # Note that a 'uniqueness' and presence check is provided by devise :validatable for email. We do not need to
-  # duplicate that here as the validation framework will have duplicate errors in the event of a failure.
-  validates :email, presence: true, email: { strict_mode: true }
-  validates :notification_email, presence: true, email: { strict_mode: true }
-  validates :public_email, presence: true, email: { strict_mode: true }, allow_blank: true, uniqueness: true
+  validates :notification_email, presence: true, email: true
+  validates :public_email, presence: true, uniqueness: true, email: true, allow_blank: true
   validates :bio, length: { maximum: 255 }, allow_blank: true
   validates :projects_limit, presence: true, numericality: { greater_than_or_equal_to: 0 }
   validates :username,
@@ -196,10 +194,22 @@ class User < ActiveRecord::Base
   state_machine :state, initial: :active do
     event :block do
       transition active: :blocked
+      transition ldap_blocked: :blocked
+    end
+
+    event :ldap_block do
+      transition active: :ldap_blocked
     end
 
     event :activate do
       transition blocked: :active
+      transition ldap_blocked: :active
+    end
+
+    state :blocked, :ldap_blocked do
+      def blocked?
+        true
+      end
     end
   end
 
@@ -207,7 +217,7 @@ class User < ActiveRecord::Base
 
   # Scopes
   scope :admins, -> { where(admin: true) }
-  scope :blocked, -> { with_state(:blocked) }
+  scope :blocked, -> { with_states(:blocked, :ldap_blocked) }
   scope :active, -> { with_state(:active) }
   scope :not_in_project, ->(project) { project.users.present? ? where("id not in (:ids)", ids: project.users.map(&:id) ) : all }
   scope :without_projects, -> { where('id NOT IN (SELECT DISTINCT(user_id) FROM members)') }
@@ -652,7 +662,10 @@ class User < ActiveRecord::Base
   end
 
   def all_emails
-    [self.email, *self.emails.map(&:email)]
+    all_emails = []
+    all_emails << self.email unless self.temp_oauth_email?
+    all_emails.concat(self.emails.map(&:email))
+    all_emails
   end
 
   def hook_attrs

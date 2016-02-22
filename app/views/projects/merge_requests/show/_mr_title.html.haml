@@ -5,14 +5,9 @@
     Merge Request ##{@merge_request.iid}
   %span.creator
     &middot;
-    opened by #{link_to_member(@project, @merge_request.author, size: 24)}
+    by #{link_to_member(@project, @merge_request.author, size: 24)}
     &middot;
     = time_ago_with_tooltip(@merge_request.created_at)
-    - if @merge_request.updated_at != @merge_request.created_at
-      %span
-        &middot;
-        = icon('edit', title: 'edited')
-        = time_ago_with_tooltip(@merge_request.updated_at, placement: 'bottom')
 
   .issue-btn-group.pull-right
     - if can?(current_user, :update_merge_request, @merge_request)
