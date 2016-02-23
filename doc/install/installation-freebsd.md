@@ -91,8 +91,6 @@ The following steps must be done as superuser!
 ### Configure It
 
     # You need to be root user
-    # Become git user
-    su git
 
     # Go to GitLab installation folder
     cd /usr/local/www/gitlab
@@ -130,7 +128,7 @@ The following steps must be done as superuser!
   
 ### Initialize Database and Activate Advanced Features
 
-    # make sure you are still using the git user and in /usr/local/www/gitlab
+    # make sure you are still using the root user and in /usr/local/www/gitlab
     rake gitlab:setup RAILS_ENV=production
 
     # Type 'yes' to create the database tables.
