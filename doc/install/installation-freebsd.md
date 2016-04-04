@@ -47,18 +47,12 @@ We recommend using a PostgreSQL database. For MySQL check [MySQL setup guide](da
     # If you want newer versions change them appropriately to: postgresql92-server, postgresql93-server, etc.
     pkg install postgresql91-server postgresql91-client
 
-    # Login to PostgreSQL
-    psql -U pgsql -d template1
-
-    # Create a user for GitLab
-    # Do not type the 'template1=#', this is part of the prompt
-    template1=# CREATE USER git CREATEDB;
+    # create user git
+    # ATTENTION: for first installation superuser rights are needed; after installation this should be removed!
+    psql -d template1 -U pgsql -c "CREATE USER git CREATEDB SUPERUSER;"
 
     # Create the GitLab production database & grant all privileges on database
-    template1=# CREATE DATABASE gitlabhq_production OWNER git;
-
-    # Quit the database session
-    template1=# \q
+    psql -d template1 -U pgsql -c "CREATE DATABASE gitlabhq_production OWNER git;"
 
     # Try connecting to the new database with the new user
     psql -U git -d gitlabhq_production
@@ -212,12 +206,15 @@ NOTE: Supply `SANITIZE=true` environment variable to `gitlab:check` to omit proj
 
 ### Initial Login
 
-Visit YOUR_SERVER in your web browser for your first GitLab login. The setup has created a default admin account for you. You can use it to log in:
+Visit YOUR_SERVER in your web browser for your first GitLab login.
 
-    root
-    5iveL!fe
+If you didn't [provide a root password during setup](#initialize-database-and-activate-advanced-features),
+you'll be redirected to a password reset screen to provide the password for the
+initial administrator account. Enter your desired password and you'll be
+redirected back to the login screen.
 
-**Important Note:** On login you'll be prompted to change the password.
+The default account's username is **root**. Provide the password you created
+earlier and login. After login you can change the username if you wish.
 
 **Enjoy!**
 
