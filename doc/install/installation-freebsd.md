@@ -33,19 +33,22 @@ There are two methods to install Gitlab: as binary package (fast, easy) or compi
 It is adviced to use the binary package installation. All dependencies will be installed automatically:
 
     pkg install www/gitlab
+    sysrc gitlab_enable=YES
 
 You are free to build it from the source. Please checkout the latest ports-tree and follow this steps:
 
     cd /usr/ports/www/gitlab
     make install
+    sysrc gitlab_enable=YES
 
 ## 2. Database
 
 We recommend using a PostgreSQL database. For MySQL check [MySQL setup guide](database_mysql.md). *Note*: because we need to make use of extensions you need at least pgsql 9.1.
+The current default version of PostgreSQL in the Portstree is 9.3 and therefore used. *Note*: we do not cope how to install PostgreSQL properly.
 
     # Install the database packages
-    # If you want newer versions change them appropriately to: postgresql92-server, postgresql93-server, etc.
-    pkg install postgresql91-server postgresql91-client
+    # If you want newer versions change them appropriately to: postgresql94-server, postgresql94-server, etc.
+    pkg install postgresql93-server
 
     # create user git
     # ATTENTION: for first installation superuser rights are needed; after installation this should be removed!
