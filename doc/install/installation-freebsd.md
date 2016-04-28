@@ -48,7 +48,12 @@ The current default version of PostgreSQL in the Portstree is 9.3 and therefore 
 
     # Install the database packages
     # If you want newer versions change them appropriately to: postgresql94-server, postgresql94-server, etc.
-    pkg install postgresql93-server
+    pkg install postgresql93-server postgresql93-contrib
+
+    # allow postgresql to start; also init and start it
+    sysrc postgresql_enable=YES
+    service postgresql initdb
+    service postgresql start
 
     # create user git
     # ATTENTION: for first installation superuser rights are needed; after installation this should be removed!
@@ -109,10 +114,7 @@ The following steps must be done as superuser!
 
     # Disable 'git gc --auto' because GitLab already runs 'git gc' when needed
     git config --global gc.auto 0
-
-    # Change the Redis socket path if you are not using the default Debian / Ubuntu configuration
-    vi config/resque.yml
-
+    
 **Important Note:** Make sure to edit both `gitlab.yml` and `unicorn.rb` to match your setup.
 
 **Note:** If you want to use HTTPS, see [Using HTTPS](#using-https) for the additional steps.
