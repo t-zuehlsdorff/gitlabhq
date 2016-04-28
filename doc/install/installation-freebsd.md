@@ -103,8 +103,12 @@ The following steps must be done as superuser!
     # Set the number of workers to at least the number of cores
     vi config/unicorn.rb
 
-    # Configure Git global settings for git user, used when editing via web editor
+    # Configure Git global settings for git user
+    # 'autocrlf' is needed for the web editor
     git config --global core.autocrlf input
+
+    # Disable 'git gc --auto' because GitLab already runs 'git gc' when needed
+    git config --global gc.auto 0
 
     # Change the Redis socket path if you are not using the default Debian / Ubuntu configuration
     vi config/resque.yml
@@ -256,6 +260,15 @@ Using a self-signed certificate is discouraged but if you must use it follow the
 
 Apart from the always supported markdown style there are other rich text files that GitLab can display. But you might have to install a dependency to do so. Please see the [github-markup gem readme](https://github.com/gitlabhq/markup#markups) for more information.
 
+### Adding your Trusted Proxies
+
+If you are using a reverse proxy on an separate machine, you may want to add the
+proxy to the trusted proxies list. Otherwise users will appear signed in from the
+proxy's IP address.
+
+You can add trusted proxies in `config/gitlab.yml` by customizing the `trusted_proxies`
+option in section 1. Save the file and restart GitLab for the changes to take effect.
+  
 ### Custom Redis Connection
 
 If you'd like Resque to connect to a Redis server on a non-standard port or on a different host, you can configure its connection string via the `config/resque.yml` file.
