@@ -35,6 +35,19 @@ It is adviced to use the binary package installation. All dependencies will be i
     pkg install www/gitlab
     sysrc gitlab_enable=YES
 
+If you're on 10.2 you may have to switch to 'latest' instead of 'quarterly' packages in order to satisfy rake.
+
+    mkdir -p /usr/local/etc/pkg/repos/FreeBSD.conf
+    vi /usr/local/etc/pkg/repos/FreeBSD.conf
+    
+    # add the following to FreeBSD.conf:
+    
+    FreeBSD: {
+      url: "pkg+http://pkg.FreeBSD.org/${ABI}/latest"
+    }
+    
+    pkg upgrade -f
+
 You are free to build it from the source. Please checkout the latest ports-tree and follow this steps:
 
     cd /usr/ports/www/gitlab
@@ -67,6 +80,9 @@ The current default version of PostgreSQL in the Portstree is 9.3 and therefore 
 
     # Quit the database session
     gitlabhq_production> \q
+
+    # Connect as superuser to gitlab db and enable pg_trgm extension
+    psql -U pgsql -d gitlabhq_production -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
 ## 3. Redis
 
@@ -173,6 +189,9 @@ Check if GitLab and its environment are configured correctly:
 ### Installation
 
     pkg install nginx
+    
+    # create nginx log directory
+    mkdir /var/log/nginx
 
 ### Site Configuration
 
@@ -182,7 +201,7 @@ Just include the provided configuration in your nginx configuration.
     vi /usr/local/etc/nginx/nginx.conf
 
     # within the 'http' configuration block add:
-    include       /usr/local/www/gitlab/lib/support/nginx/gitlab
+    include       /usr/local/www/gitlab/lib/support/nginx/gitlab;
 
 **Note:** If you want to use HTTPS, replace the `gitlab` Nginx config with `gitlab-ssl`. See [Using HTTPS](#using-https) for HTTPS configuration details.
 
