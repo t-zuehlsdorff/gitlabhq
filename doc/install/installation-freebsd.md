@@ -30,25 +30,25 @@ The GitLab installation consists of setting up the following components:
 
 There are two methods to install Gitlab: as binary package (fast, easy) or compile it from the source (relatively easy).
 
-It is adviced to use the binary package installation. All dependencies will be installed automatically:
+It is recommended to use binary package installation. All dependencies will be installed automatically:
 
     pkg install www/gitlab
     sysrc gitlab_enable=YES
 
-If you're on 10.2 you may have to switch to 'latest' instead of 'quarterly' packages in order to satisfy rake.
+In order to get the latest version and timely security patches it may be necessary to switch to 'latest' instead of 'quarterly' packages.
 
-    mkdir -p /usr/local/etc/pkg/repos/FreeBSD.conf
+    mkdir -p /usr/local/etc/pkg/repos
     vi /usr/local/etc/pkg/repos/FreeBSD.conf
-    
+
     # add the following to FreeBSD.conf:
-    
+
     FreeBSD: {
       url: "pkg+http://pkg.FreeBSD.org/${ABI}/latest"
     }
-    
-    pkg upgrade -f
 
-You are free to build it from the source. Please checkout the latest ports-tree and follow this steps:
+    pkg upgrade
+
+You are free to build it from source. Please checkout the latest ports-tree and follow these steps:
 
     cd /usr/ports/www/gitlab
     make install
@@ -57,7 +57,7 @@ You are free to build it from the source. Please checkout the latest ports-tree 
 ## 2. Database
 
 We recommend using a PostgreSQL database. For MySQL check [MySQL setup guide](database_mysql.md). *Note*: because we need to make use of extensions you need at least pgsql 9.1.
-The current default version of PostgreSQL in the Portstree is 9.3 and therefore used. *Note*: we do not cope how to install PostgreSQL properly.
+The current default version of PostgreSQL in the Portstree is 9.3 and is therefore used. *Note*: we do not cope how to install PostgreSQL properly.
 
     # Install the database packages
     # If you want newer versions change them appropriately to: postgresql94-server, postgresql94-server, etc.
@@ -86,12 +86,12 @@ The current default version of PostgreSQL in the Portstree is 9.3 and therefore 
 
 ## 3. Redis
 
-Redis is automatically installed, when installing Gitlab. But some Configuration is needed.
+Redis is automatically installed, when installing Gitlab. But some configuration is needed.
 The following steps must be done as superuser!
 
     # Enable Redis socket
     echo 'unixsocket /var/run/redis/redis.sock' >> /usr/local/etc/redis.conf
-  
+
     # Grant permission to the socket to all members of the redis group
     echo 'unixsocketperm 770' >> /usr/local/etc/redis.conf
 
@@ -113,7 +113,7 @@ The following steps must be done as superuser!
     # Go to GitLab installation folder
     cd /usr/local/www/gitlab
 
-    # Update GitLab config file, follow the directions at top of file
+    # Update GitLab config file, follow the directions at the top of the file
     vi config/gitlab.yml
 
     # Find number of cores
@@ -130,7 +130,7 @@ The following steps must be done as superuser!
 
     # Disable 'git gc --auto' because GitLab already runs 'git gc' when needed
     git config --global gc.auto 0
-    
+
 **Important Note:** Make sure to edit both `gitlab.yml` and `unicorn.rb` to match your setup.
 
 **Note:** If you want to use HTTPS, see [Using HTTPS](#using-https) for the additional steps.
@@ -144,7 +144,7 @@ The following steps must be done as superuser!
     # Change 'secure password' with the value you have given to $password
     # You can keep the double quotes around the password
     vi config/database.yml
-  
+
 ### Initialize Database and Activate Advanced Features
 
     # make sure you are still using the root user and in /usr/local/www/gitlab
@@ -181,7 +181,7 @@ Check if GitLab and its environment are configured correctly:
     service gitlab start
     # or
     /usr/local/etc/rc.d/gitlab restart
- 
+
 ## 7. Nginx
 
 **Note:** Nginx is the officially supported web server for GitLab. If you cannot or do not want to use Nginx as your web server, have a look at the [GitLab recipes](https://gitlab.com/gitlab-org/gitlab-recipes/).
@@ -189,7 +189,7 @@ Check if GitLab and its environment are configured correctly:
 ### Installation
 
     pkg install nginx
-    
+
     # create nginx log directory
     mkdir /var/log/nginx
 
@@ -289,7 +289,7 @@ proxy's IP address.
 
 You can add trusted proxies in `config/gitlab.yml` by customizing the `trusted_proxies`
 option in section 1. Save the file and restart GitLab for the changes to take effect.
-  
+
 ### Custom Redis Connection
 
 If you'd like Resque to connect to a Redis server on a non-standard port or on a different host, you can configure its connection string via the `config/resque.yml` file.
