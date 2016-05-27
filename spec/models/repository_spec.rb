@@ -100,6 +100,12 @@ describe Repository, models: true do
       expect(results.first).not_to start_with('fatal:')
     end
 
+    it 'properly handles an unmatched parenthesis' do
+      results = repository.search_files("test(", 'master')
+
+      expect(results.first).not_to start_with('fatal:')
+    end
+
     describe 'result' do
       subject { results.first }
 
@@ -134,10 +140,55 @@ describe Repository, models: true do
     end
   end
 
-  describe '#license_blob' do
+  describe "#changelog" do
+    before do
+      repository.send(:cache).expire(:changelog)
+    end
+
+    it 'accepts changelog' do
+      expect(repository.tree).to receive(:blobs).and_return([TestBlob.new('changelog')])
+
+      expect(repository.changelog.name).to eq('changelog')
+    end
+
+    it 'accepts news instead of changelog' do
+      expect(repository.tree).to receive(:blobs).and_return([TestBlob.new('news')])
+
+      expect(repository.changelog.name).to eq('news')
+    end
+
+    it 'accepts history instead of changelog' do
+      expect(repository.tree).to receive(:blobs).and_return([TestBlob.new('history')])
+
+      expect(repository.changelog.name).to eq('history')
+    end
+
+    it 'accepts changes instead of changelog' do
+      expect(repository.tree).to receive(:blobs).and_return([TestBlob.new('changes')])
+
+      expect(repository.changelog.name).to eq('changes')
+    end
+
+    it 'is case-insensitive' do
+      expect(repository.tree).to receive(:blobs).and_return([TestBlob.new('CHANGELOG')])
+
+      expect(repository.changelog.name).to eq('CHANGELOG')
+    end
+  end
+
+  describe "#license_blob" do
     before do
       repository.send(:cache).expire(:license_blob)
       repository.remove_file(user, 'LICENSE', 'Remove LICENSE', 'master')
+    end
+
+    it 'handles when HEAD points to non-existent ref' do
+      repository.commit_file(user, 'LICENSE', 'Copyright!', 'Add LICENSE', 'master', false)
+      rugged = double('rugged')
+      expect(rugged).to receive(:head_unborn?).and_return(true)
+      expect(repository).to receive(:rugged).and_return(rugged)
+
+      expect(repository.license_blob).to be_nil
     end
 
     it 'looks in the root_ref only' do
@@ -166,6 +217,15 @@ describe Repository, models: true do
     before do
       repository.send(:cache).expire(:license_key)
       repository.remove_file(user, 'LICENSE', 'Remove LICENSE', 'master')
+    end
+
+    it 'handles when HEAD points to non-existent ref' do
+      repository.commit_file(user, 'LICENSE', 'Copyright!', 'Add LICENSE', 'master', false)
+      rugged = double('rugged')
+      expect(rugged).to receive(:head_unborn?).and_return(true)
+      expect(repository).to receive(:rugged).and_return(rugged)
+
+      expect(repository.license_key).to be_nil
     end
 
     it 'returns nil when no license is detected' do
@@ -383,7 +443,7 @@ describe Repository, models: true do
       end
 
       it 'does nothing' do
-        expect(repository.raw_repository).to_not receive(:autocrlf=).
+        expect(repository.raw_repository).not_to receive(:autocrlf=).
           with(:input)
 
         repository.update_autocrlf_option
@@ -451,7 +511,7 @@ describe Repository, models: true do
 
     it 'does not expire the emptiness caches for a non-empty repository' do
       expect(repository).to receive(:empty?).and_return(false)
-      expect(repository).to_not receive(:expire_emptiness_caches)
+      expect(repository).not_to receive(:expire_emptiness_caches)
 
       repository.expire_cache
     end
@@ -525,7 +585,7 @@ describe Repository, models: true do
   end
 
   describe :skip_merged_commit do
-    subject { repository.commits(Gitlab::Git::BRANCH_REF_PREFIX + "'test'", nil, 100, 0, true).map{ |k| k.id } }
+    subject { repository.commits(Gitlab::Git::BRANCH_REF_PREFIX + "'test'", limit: 100, skip_merges: true).map{ |k| k.id } }
 
     it { is_expected.not_to include('e56497bb5f03a90a51293fc6d516788730953899') }
   end
@@ -614,7 +674,7 @@ describe Repository, models: true do
       end
 
       it 'does not flush caches that depend on repository data' do
-        expect(repository).to_not receive(:expire_cache)
+        expect(repository).not_to receive(:expire_cache)
 
         repository.before_delete
       end
@@ -759,15 +819,13 @@ describe Repository, models: true do
 
   end
 
-  describe "#main_language" do
-    it 'shows the main language of the project' do
-      expect(repository.main_language).to eq("Ruby")
+  describe "#copy_gitattributes" do
+    it 'returns true with a valid ref' do
+      expect(repository.copy_gitattributes('master')).to be_truthy
     end
 
-    it 'returns nil when the repository is empty' do
-      allow(repository).to receive(:empty?).and_return(true)
-
-      expect(repository.main_language).to be_nil
+    it 'returns false with an invalid ref' do
+      expect(repository.copy_gitattributes('invalid')).to be_falsey
     end
   end
 
@@ -812,13 +870,30 @@ describe Repository, models: true do
   end
 
   describe '#add_tag' do
-    it 'adds a tag' do
-      expect(repository).to receive(:before_push_tag)
+    context 'with a valid target' do
+      let(:user) { build_stubbed(:user) }
 
-      expect_any_instance_of(Gitlab::Shell).to receive(:add_tag).
-        with(repository.path_with_namespace, '8.5', 'master', 'foo')
+      it 'creates the tag using rugged' do
+        expect(repository.rugged.tags).to receive(:create).
+          with('8.5', repository.commit('master').id,
+            hash_including(message: 'foo',
+                           tagger: hash_including(name: user.name, email: user.email))).
+          and_call_original
 
-      repository.add_tag('8.5', 'master', 'foo')
+        repository.add_tag(user, '8.5', 'master', 'foo')
+      end
+
+      it 'returns a Gitlab::Git::Tag object' do
+        tag = repository.add_tag(user, '8.5', 'master', 'foo')
+
+        expect(tag).to be_a(Gitlab::Git::Tag)
+      end
+    end
+
+    context 'with an invalid target' do
+      it 'returns false' do
+        expect(repository.add_tag(user, '8.5', 'bar', 'foo')).to be false
+      end
     end
   end
 
@@ -864,7 +939,7 @@ describe Repository, models: true do
 
       expect(repository.avatar).to eq('logo.png')
 
-      expect(repository).to_not receive(:blob_at_branch)
+      expect(repository).not_to receive(:blob_at_branch)
       expect(repository.avatar).to eq('logo.png')
     end
   end
@@ -958,7 +1033,7 @@ describe Repository, models: true do
         and_return(true)
 
       repository.cache_keys.each do |key|
-        expect(repository).to_not receive(key)
+        expect(repository).not_to receive(key)
       end
 
       repository.build_cache

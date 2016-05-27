@@ -16,31 +16,49 @@ module IssuesHelper
   def url_for_project_issues(project = @project, options = {})
     return '' if project.nil?
 
-    if options[:only_path]
-      project.issues_tracker.project_path
-    else
-      project.issues_tracker.project_url
-    end
+    url =
+      if options[:only_path]
+        project.issues_tracker.project_path
+      else
+        project.issues_tracker.project_url
+      end
+
+    # Ensure we return a valid URL to prevent possible XSS.
+    URI.parse(url).to_s
+  rescue URI::InvalidURIError
+    ''
   end
 
   def url_for_new_issue(project = @project, options = {})
     return '' if project.nil?
 
-    if options[:only_path]
-      project.issues_tracker.new_issue_path
-    else
-      project.issues_tracker.new_issue_url
-    end
+    url =
+      if options[:only_path]
+        project.issues_tracker.new_issue_path
+      else
+        project.issues_tracker.new_issue_url
+      end
+
+    # Ensure we return a valid URL to prevent possible XSS.
+    URI.parse(url).to_s
+  rescue URI::InvalidURIError
+    ''
   end
 
   def url_for_issue(issue_iid, project = @project, options = {})
     return '' if project.nil?
 
-    if options[:only_path]
-      project.issues_tracker.issue_path(issue_iid)
-    else
-      project.issues_tracker.issue_url(issue_iid)
-    end
+    url =
+      if options[:only_path]
+        project.issues_tracker.issue_path(issue_iid)
+      else
+        project.issues_tracker.issue_url(issue_iid)
+      end
+
+    # Ensure we return a valid URL to prevent possible XSS.
+    URI.parse(url).to_s
+  rescue URI::InvalidURIError
+    ''
   end
 
   def bulk_update_milestone_options
@@ -85,23 +103,6 @@ module IssuesHelper
 
   def issue_button_visibility(issue, closed)
     return 'hidden' if issue.closed? == closed
-  end
-
-  def issue_to_atom(xml, issue)
-    xml.entry do
-      xml.id      namespace_project_issue_url(issue.project.namespace,
-                                              issue.project, issue)
-      xml.link    href: namespace_project_issue_url(issue.project.namespace,
-                                                    issue.project, issue)
-      xml.title   truncate(issue.title, length: 80)
-      xml.updated issue.created_at.xmlschema
-      xml.media   :thumbnail, width: "40", height: "40", url: image_url(avatar_icon(issue.author_email))
-      xml.author do |author|
-        xml.name issue.author_name
-        xml.email issue.author_email
-      end
-      xml.summary issue.title
-    end
   end
 
   def merge_requests_sentence(merge_requests)

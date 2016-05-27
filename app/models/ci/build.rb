@@ -1,40 +1,3 @@
-# == Schema Information
-#
-# Table name: ci_builds
-#
-#  id                 :integer          not null, primary key
-#  project_id         :integer
-#  status             :string(255)
-#  finished_at        :datetime
-#  trace              :text
-#  created_at         :datetime
-#  updated_at         :datetime
-#  started_at         :datetime
-#  runner_id          :integer
-#  coverage           :float
-#  commit_id          :integer
-#  commands           :text
-#  job_id             :integer
-#  name               :string(255)
-#  deploy             :boolean          default(FALSE)
-#  options            :text
-#  allow_failure      :boolean          default(FALSE), not null
-#  stage              :string(255)
-#  trigger_request_id :integer
-#  stage_idx          :integer
-#  tag                :boolean
-#  ref                :string(255)
-#  user_id            :integer
-#  type               :string(255)
-#  target_url         :string(255)
-#  description        :string(255)
-#  artifacts_file     :text
-#  gl_project_id      :integer
-#  artifacts_metadata :text
-#  erased_by_id       :integer
-#  erased_at          :datetime
-#
-
 module Ci
   class Build < CommitStatus
     belongs_to :runner, class_name: 'Ci::Runner'
@@ -90,6 +53,7 @@ module Ci
         new_build.stage_idx = build.stage_idx
         new_build.trigger_request = build.trigger_request
         new_build.save
+        MergeRequests::AddTodoWhenBuildFailsService.new(build.project, nil).close(new_build)
         new_build
       end
     end
@@ -132,8 +96,12 @@ module Ci
     end
 
     def trace_html
-      html = Ci::Ansi2html::convert(trace) if trace.present?
-      html || ''
+      trace_with_state[:html] || ''
+    end
+
+    def trace_with_state(state = nil)
+      trace_with_state = Ci::Ansi2html::convert(trace, state) if trace.present?
+      trace_with_state || {}
     end
 
     def timeout
@@ -238,7 +206,7 @@ module Ci
     end
 
     def recreate_trace_dir
-      unless Dir.exists?(dir_to_trace)
+      unless Dir.exist?(dir_to_trace)
         FileUtils.mkdir_p(dir_to_trace)
       end
     end
@@ -323,7 +291,13 @@ module Ci
     end
 
     def can_be_served?(runner)
+      return false unless has_tags? || runner.run_untagged?
+
       (tag_list - runner.tag_list).empty?
+    end
+
+    def has_tags?
+      tag_list.any?
     end
 
     def any_runners_online?

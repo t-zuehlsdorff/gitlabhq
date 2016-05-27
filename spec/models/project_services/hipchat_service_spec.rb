@@ -26,6 +26,20 @@ describe HipchatService, models: true do
     it { is_expected.to have_one :service_hook }
   end
 
+  describe 'Validations' do
+    context 'when service is active' do
+      before { subject.active = true }
+
+      it { is_expected.to validate_presence_of(:token) }
+    end
+
+    context 'when service is inactive' do
+      before { subject.active = false }
+
+      it { is_expected.not_to validate_presence_of(:token) }
+    end
+  end
+
   describe "Execute" do
     let(:hipchat) { HipchatService.new }
     let(:user)    { create(:user, username: 'username') }
@@ -289,7 +303,7 @@ describe HipchatService, models: true do
         it "should notify only broken" do
           hipchat.notify_only_broken_builds = true
           hipchat.execute(data)
-          expect(WebMock).to_not have_requested(:post, api_url).once
+          expect(WebMock).not_to have_requested(:post, api_url).once
         end
       end
     end

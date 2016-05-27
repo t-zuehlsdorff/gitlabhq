@@ -241,15 +241,19 @@ describe SystemNoteService, services: true do
 
       it 'sets the note text' do
         expect(subject.note).
-          to eq "Title changed from **Old title** to **#{noteable.title}**"
+          to eq "Changed title: **{-Old title-}** → **{+#{noteable.title}+}**"
       end
     end
+  end
 
-    context 'when noteable does not respond to `title' do
-      let(:noteable) { double('noteable') }
+  describe '.change_issue_confidentiality' do
+    subject { described_class.change_issue_confidentiality(noteable, project, author) }
 
-      it 'returns nil' do
-        expect(subject).to be_nil
+    context 'when noteable responds to `confidential`' do
+      it_behaves_like 'a system note'
+
+      it 'sets the note text' do
+        expect(subject.note).to eq 'Made the issue visible'
       end
     end
   end
@@ -503,6 +507,15 @@ describe SystemNoteService, services: true do
       it 'should raise error' do
         expect { subject }.to raise_error StandardError, /Invalid direction/
       end
+    end
+  end
+
+  describe '.new_commit_summary' do
+    it 'escapes HTML titles' do
+      commit = double(title: '<pre>This is a test</pre>', short_id: '12345678')
+      escaped = '* 12345678 - &lt;pre&gt;This is a test&lt;&#x2F;pre&gt;'
+
+      expect(described_class.new_commit_summary([commit])).to eq([escaped])
     end
   end
 

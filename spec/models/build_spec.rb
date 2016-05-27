@@ -90,7 +90,7 @@ describe Ci::Build, models: true do
         build.update_attributes(trace: token)
       end
 
-      it { is_expected.to_not include(token) }
+      it { is_expected.not_to include(token) }
     end
   end
 
@@ -259,11 +259,11 @@ describe Ci::Build, models: true do
   end
 
   describe '#can_be_served?' do
-    let(:runner) { FactoryGirl.create :ci_runner }
+    let(:runner) { create(:ci_runner) }
 
     before { build.project.runners << runner }
 
-    context 'runner without tags' do
+    context 'when runner does not have tags' do
       it 'can handle builds without tags' do
         expect(build.can_be_served?(runner)).to be_truthy
       end
@@ -274,22 +274,50 @@ describe Ci::Build, models: true do
       end
     end
 
-    context 'runner with tags' do
+    context 'when runner has tags' do
       before { runner.tag_list = ['bb', 'cc'] }
 
-      it 'can handle builds without tags' do
-        expect(build.can_be_served?(runner)).to be_truthy
+      shared_examples 'tagged build picker' do
+        it 'can handle build with matching tags' do
+          build.tag_list = ['bb']
+          expect(build.can_be_served?(runner)).to be_truthy
+        end
+
+        it 'cannot handle build without matching tags' do
+          build.tag_list = ['aa']
+          expect(build.can_be_served?(runner)).to be_falsey
+        end
       end
 
-      it 'can handle build with matching tags' do
-        build.tag_list = ['bb']
-        expect(build.can_be_served?(runner)).to be_truthy
+      context 'when runner can pick untagged jobs' do
+        it 'can handle builds without tags' do
+          expect(build.can_be_served?(runner)).to be_truthy
+        end
+
+        it_behaves_like 'tagged build picker'
       end
 
-      it 'cannot handle build with not matching tags' do
-        build.tag_list = ['aa']
-        expect(build.can_be_served?(runner)).to be_falsey
+      context 'when runner can not pick untagged jobs' do
+        before { runner.run_untagged = false }
+
+        it 'can not handle builds without tags' do
+          expect(build.can_be_served?(runner)).to be_falsey
+        end
+
+        it_behaves_like 'tagged build picker'
       end
+    end
+  end
+
+  describe '#has_tags?' do
+    context 'when build has tags' do
+      subject { create(:ci_build, tag_list: ['tag']) }
+      it { is_expected.to have_tags }
+    end
+
+    context 'when build does not have tags' do
+      subject { create(:ci_build, tag_list: []) }
+      it { is_expected.not_to have_tags }
     end
   end
 
@@ -506,7 +534,7 @@ describe Ci::Build, models: true do
       end
 
       it 'should set erase date' do
-        expect(build.erased_at).to_not be_falsy
+        expect(build.erased_at).not_to be_falsy
       end
     end
 
@@ -578,7 +606,7 @@ describe Ci::Build, models: true do
 
         describe '#erase' do
           it 'should not raise error' do
-            expect { build.erase }.to_not raise_error
+            expect { build.erase }.not_to raise_error
           end
         end
       end
