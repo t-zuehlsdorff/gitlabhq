@@ -4,7 +4,7 @@
 # It's not advisable to add code directly here, but if you do, it'll appear at the bottom of the
 # the compiled file.
 #
-#= require jquery
+#= require jquery2
 #= require jquery-ui/autocomplete
 #= require jquery-ui/datepicker
 #= require jquery-ui/draggable
@@ -18,7 +18,6 @@
 #= require jquery.atwho
 #= require jquery.scrollTo
 #= require jquery.turbolinks
-#= require d3
 #= require turbolinks
 #= require autosave
 #= require bootstrap/affix
@@ -36,7 +35,6 @@
 #= require raphael
 #= require g.raphael
 #= require g.bar
-#= require Chart
 #= require branch-graph
 #= require ace/ace
 #= require ace/ext-searchbox
@@ -51,9 +49,17 @@
 #= require shortcuts_network
 #= require jquery.nicescroll
 #= require date.format
-#= require_tree .
+#= require_directory ./behaviors
+#= require_directory ./blob
+#= require_directory ./ci
+#= require_directory ./commit
+#= require_directory ./extensions
+#= require_directory ./lib
+#= require_directory ./u2f
+#= require_directory .
 #= require fuzzaldrin-plus
 #= require cropper
+#= require u2f
 
 window.slugify = (text) ->
   text.replace(/[^-a-zA-Z0-9]+/g, '_').toLowerCase()
@@ -156,19 +162,6 @@ $ ->
       $el.data('placement') || 'bottom'
   )
 
-  $('.header-logo .home').tooltip(
-    placement: (_, el) ->
-      $el = $(el)
-      if $('.page-with-sidebar').hasClass('page-sidebar-collapsed') then 'right' else 'bottom'
-    container: 'body'
-  )
-
-  $('.page-with-sidebar').tooltip(
-    selector: '.sidebar-collapsed .nav-sidebar a, .sidebar-collapsed a.sidebar-user'
-    placement: 'right'
-    container: 'body'
-  )
-
   # Form submitter
   $('.trigger-submit').on 'change', ->
     $(@).parents('form').submit()
@@ -201,6 +194,7 @@ $ ->
 
   $('.navbar-toggle').on 'click', ->
     $('.header-content .title').toggle()
+    $('.header-content .header-logo').toggle()
     $('.header-content .navbar-collapse').toggle()
     $('.navbar-toggle').toggleClass('active')
     $('.navbar-toggle i').toggleClass("fa-angle-right fa-angle-left")
@@ -219,6 +213,10 @@ $ ->
     form = btn.closest("form")
     new ConfirmDangerModal(form, text)
 
+
+  $(document).on 'click', 'button', ->
+    $(this).blur()
+
   $('input[type="search"]').each ->
     $this = $(this)
     $this.attr 'value', $this.val()
@@ -231,7 +229,6 @@ $ ->
       $this.attr 'value', $this.val()
 
   $sidebarGutterToggle = $('.js-sidebar-toggle')
-  $navIconToggle = $('.toggle-nav-collapse')
 
   $(document)
     .off 'breakpoint:change'
@@ -240,10 +237,6 @@ $ ->
         $gutterIcon = $sidebarGutterToggle.find('i')
         if $gutterIcon.hasClass('fa-angle-double-right')
           $sidebarGutterToggle.trigger('click')
-
-        $navIcon = $navIconToggle.find('.fa')
-        if $navIcon.hasClass('fa-angle-left')
-          $navIconToggle.trigger('click')
 
   fitSidebarForSize = ->
     oldBootstrapBreakpoint = bootstrapBreakpoint
@@ -257,9 +250,10 @@ $ ->
       $(document).trigger('breakpoint:change', [bootstrapBreakpoint])
 
   $(window)
-    .off "resize"
-    .on "resize", (e) ->
+    .off "resize.app"
+    .on "resize.app", (e) ->
       fitSidebarForSize()
 
+  gl.awardsHandler = new AwardsHandler()
   checkInitialSidebarSize()
   new Aside()

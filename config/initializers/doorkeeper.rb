@@ -12,7 +12,7 @@ Doorkeeper.configure do
   end
 
   resource_owner_from_credentials do |routes|
-    Gitlab::Auth.new.find(params[:username], params[:password])
+    Gitlab::Auth.find_with_user_password(params[:username], params[:password])
   end
 
   # If you want to restrict access to the web interface for adding oauth authorized applications, you need to declare the block below.
@@ -52,7 +52,7 @@ Doorkeeper.configure do
   # For more information go to
   # https://github.com/doorkeeper-gem/doorkeeper/wiki/Using-Scopes
   default_scopes  :api
-  #optional_scopes :write, :update
+  # optional_scopes :write, :update
 
   # Change the way client credentials are retrieved from the request object.
   # By default it retrieves first from the `HTTP_AUTHORIZATION` header, then

@@ -139,7 +139,7 @@ class ProjectsController < Projects::ApplicationController
     participants = ::Projects::ParticipantsService.new(@project, current_user).execute(note_type, note_id)
 
     @suggestions = {
-      emojis: AwardEmoji.urls,
+      emojis: Gitlab::AwardEmoji.urls,
       issues: autocomplete.issues,
       milestones: autocomplete.milestones,
       mergerequests: autocomplete.merge_requests,
@@ -197,8 +197,8 @@ class ProjectsController < Projects::ApplicationController
   def markdown_preview
     text = params[:text]
 
-    ext = Gitlab::ReferenceExtractor.new(@project, current_user, current_user)
-    ext.analyze(text)
+    ext = Gitlab::ReferenceExtractor.new(@project, current_user)
+    ext.analyze(text, author: current_user)
 
     render json: {
       body:       view_context.markdown(text),
@@ -234,7 +234,7 @@ class ProjectsController < Projects::ApplicationController
       :issues_tracker_id, :default_branch,
       :wiki_enabled, :visibility_level, :import_url, :last_activity_at, :namespace_id, :avatar,
       :builds_enabled, :build_allow_git_fetch, :build_timeout_in_minutes, :build_coverage_regex,
-      :public_builds,
+      :public_builds, :only_allow_merge_if_build_succeeds
     )
   end
 

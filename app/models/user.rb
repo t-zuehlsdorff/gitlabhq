@@ -10,6 +10,8 @@ class User < ActiveRecord::Base
   include CaseSensitivity
   include TokenAuthenticatable
 
+  DEFAULT_NOTIFICATION_LEVEL = :participating
+
   add_authentication_token_field :authentication_token
 
   default_value_for :admin, false
@@ -20,14 +22,18 @@ class User < ActiveRecord::Base
   default_value_for :hide_no_password, false
   default_value_for :theme_id, gitlab_config.default_theme
 
+  attr_encrypted :otp_secret,
+    key:       Gitlab::Application.config.secret_key_base,
+    mode:      :per_attribute_iv_and_salt,
+    algorithm: 'aes-256-cbc'
+
   devise :two_factor_authenticatable,
          otp_secret_encryption_key: Gitlab::Application.config.secret_key_base
-  alias_attribute :two_factor_enabled, :otp_required_for_login
 
   devise :two_factor_backupable, otp_number_of_backup_codes: 10
   serialize :otp_backup_codes, JSON
 
-  devise :lockable, :async, :recoverable, :rememberable, :trackable,
+  devise :lockable, :recoverable, :rememberable, :trackable,
     :validatable, :omniauthable, :confirmable, :registerable
 
   attr_accessor :force_random_password
@@ -46,6 +52,7 @@ class User < ActiveRecord::Base
   has_many :keys, dependent: :destroy
   has_many :emails, dependent: :destroy
   has_many :identities, dependent: :destroy, autosave: true
+  has_many :u2f_registrations, dependent: :destroy
 
   # Groups
   has_many :members, dependent: :destroy
@@ -79,6 +86,7 @@ class User < ActiveRecord::Base
   has_many :builds,                   dependent: :nullify, class_name: 'Ci::Build'
   has_many :todos,                    dependent: :destroy
   has_many :notification_settings,    dependent: :destroy
+  has_many :award_emoji,              as: :awardable, dependent: :destroy
 
   #
   # Validations
@@ -93,7 +101,6 @@ class User < ActiveRecord::Base
     presence: true,
     uniqueness: { case_sensitive: false }
 
-  validates :notification_level, presence: true
   validate :namespace_uniq, if: ->(user) { user.username_changed? }
   validate :avatar_type, if: ->(user) { user.avatar.present? && user.avatar_changed? }
   validate :unique_email, if: ->(user) { user.email_changed? }
@@ -126,13 +133,6 @@ class User < ActiveRecord::Base
   # User's Project preference
   # Note: When adding an option, it MUST go on the end of the array.
   enum project_view: [:readme, :activity, :files]
-
-  # Notification level
-  # Note: When adding an option, it MUST go on the end of the array.
-  #
-  # TODO: Add '_prefix: :notification' to enum when update to Rails 5. https://github.com/rails/rails/pull/19813
-  # Because user.notification_disabled? is much better than user.disabled?
-  enum notification_level: [:disabled, :participating, :watch, :global, :mention]
 
   alias_attribute :private_token, :authentication_token
 
@@ -169,8 +169,16 @@ class User < ActiveRecord::Base
   scope :active, -> { with_state(:active) }
   scope :not_in_project, ->(project) { project.users.present? ? where("id not in (:ids)", ids: project.users.map(&:id) ) : all }
   scope :without_projects, -> { where('id NOT IN (SELECT DISTINCT(user_id) FROM members)') }
-  scope :with_two_factor,    -> { where(two_factor_enabled: true) }
-  scope :without_two_factor, -> { where(two_factor_enabled: false) }
+
+  def self.with_two_factor
+    joins("LEFT OUTER JOIN u2f_registrations AS u2f ON u2f.user_id = users.id").
+      where("u2f.id IS NOT NULL OR otp_required_for_login = ?", true).distinct(arel_table[:id])
+  end
+
+  def self.without_two_factor
+    joins("LEFT OUTER JOIN u2f_registrations AS u2f ON u2f.user_id = users.id").
+      where("u2f.id IS NULL AND otp_required_for_login = ?", false)
+  end
 
   #
   # Class methods
@@ -317,14 +325,29 @@ class User < ActiveRecord::Base
   end
 
   def disable_two_factor!
-    update_attributes(
-      two_factor_enabled:          false,
-      encrypted_otp_secret:        nil,
-      encrypted_otp_secret_iv:     nil,
-      encrypted_otp_secret_salt:   nil,
-      otp_grace_period_started_at: nil,
-      otp_backup_codes:            nil
-    )
+    transaction do
+      update_attributes(
+        otp_required_for_login:      false,
+        encrypted_otp_secret:        nil,
+        encrypted_otp_secret_iv:     nil,
+        encrypted_otp_secret_salt:   nil,
+        otp_grace_period_started_at: nil,
+        otp_backup_codes:            nil
+      )
+      self.u2f_registrations.destroy_all
+    end
+  end
+
+  def two_factor_enabled?
+    two_factor_otp_enabled? || two_factor_u2f_enabled?
+  end
+
+  def two_factor_otp_enabled?
+    self.otp_required_for_login?
+  end
+
+  def two_factor_u2f_enabled?
+    self.u2f_registrations.exists?
   end
 
   def namespace_uniq
@@ -769,6 +792,34 @@ class User < ActiveRecord::Base
 
   def notification_settings_for(source)
     notification_settings.find_or_initialize_by(source: source)
+  end
+
+  # Lazy load global notification setting
+  # Initializes User setting with Participating level if setting not persisted
+  def global_notification_setting
+    return @global_notification_setting if defined?(@global_notification_setting)
+
+    @global_notification_setting = notification_settings.find_or_initialize_by(source: nil)
+    @global_notification_setting.update_attributes(level: NotificationSetting.levels[DEFAULT_NOTIFICATION_LEVEL]) unless @global_notification_setting.persisted?
+
+    @global_notification_setting
+  end
+
+  def assigned_open_merge_request_count(force: false)
+    Rails.cache.fetch(['users', id, 'assigned_open_merge_request_count'], force: force) do
+      assigned_merge_requests.opened.count
+    end
+  end
+
+  def assigned_open_issues_count(force: false)
+    Rails.cache.fetch(['users', id, 'assigned_open_issues_count'], force: force) do
+      assigned_issues.opened.count
+    end
+  end
+
+  def update_cache_counts
+    assigned_open_merge_request_count(force: true)
+    assigned_open_issues_count(force: true)
   end
 
   private

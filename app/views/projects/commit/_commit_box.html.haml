@@ -53,20 +53,20 @@
 - if @commit.status
   .commit-info-row
     Builds for
-    = pluralize(@commit.ci_commits.count, 'pipeline')
+    = pluralize(@commit.pipelines.count, 'pipeline')
     = link_to builds_namespace_project_commit_path(@project.namespace, @project, @commit.id), class: "ci-status-link ci-status-icon-#{@commit.status}" do
       = ci_icon_for_status(@commit.status)
       = ci_label_for_status(@commit.status)
-    - if @commit.ci_commits.duration
+    - if @commit.pipelines.duration
       in
-      = time_interval_in_words @commit.ci_commits.duration
+      = time_interval_in_words @commit.pipelines.duration
 
 .commit-box.content-block
   %h3.commit-title
-    = markdown escape_once(@commit.title), pipeline: :single_line
+    = markdown escape_once(@commit.title), pipeline: :single_line, author: @commit.author
   - if @commit.description.present?
     %pre.commit-description
-      = preserve(markdown(escape_once(@commit.description), pipeline: :single_line))
+      = preserve(markdown(escape_once(@commit.description), pipeline: :single_line, author: @commit.author))
 
 :javascript
   $(".commit-info.branches").load("#{branches_namespace_project_commit_path(@project.namespace, @project, @commit.id)}");
