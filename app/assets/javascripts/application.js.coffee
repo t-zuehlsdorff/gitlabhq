@@ -32,10 +32,6 @@
 #= require bootstrap/tooltip
 #= require bootstrap/popover
 #= require select2
-#= require raphael
-#= require g.raphael
-#= require g.bar
-#= require branch-graph
 #= require ace/ace
 #= require ace/ext-searchbox
 #= require underscore
@@ -125,9 +121,10 @@ window.onload = ->
     setTimeout shiftWindow, 100
 
 $ ->
+  gl.utils.preventDisabledButtons()
   bootstrapBreakpoint = bp.getBreakpointSize()
 
-  $(".nicescroll").niceScroll(cursoropacitymax: '0.4', cursorcolor: '#FFF', cursorborder: "1px solid #FFF")
+  $(".nav-sidebar").niceScroll(cursoropacitymax: '0.4', cursorcolor: '#FFF', cursorborder: "1px solid #FFF")
 
   # Click a .js-select-on-focus field, select the contents
   $(".js-select-on-focus").on "focusin", ->
@@ -257,3 +254,47 @@ $ ->
   gl.awardsHandler = new AwardsHandler()
   checkInitialSidebarSize()
   new Aside()
+
+  # Sidenav pinning
+  if $(window).width() < 1440 and $.cookie('pin_nav') is 'true'
+    $.cookie('pin_nav', 'false', { path: '/' })
+    $('.page-with-sidebar')
+      .toggleClass('page-sidebar-collapsed page-sidebar-expanded')
+      .removeClass('page-sidebar-pinned')
+    $('.navbar-fixed-top').removeClass('header-pinned-nav')
+
+  $(document)
+    .off 'click', '.js-nav-pin'
+    .on 'click', '.js-nav-pin', (e) ->
+      e.preventDefault()
+
+      $pinBtn = $(e.currentTarget)
+      $page = $ '.page-with-sidebar'
+      $topNav = $ '.navbar-fixed-top'
+      $tooltip = $ "##{$pinBtn.attr('aria-describedby')}"
+      doPinNav = not $page.is('.page-sidebar-pinned')
+      tooltipText = 'Pin navigation'
+
+      $(this).toggleClass 'is-active'
+
+      if doPinNav
+        $page.addClass('page-sidebar-pinned')
+        $topNav.addClass('header-pinned-nav')
+      else
+        $tooltip.remove() # Remove it immediately when collapsing the sidebar
+        $page.removeClass('page-sidebar-pinned')
+             .toggleClass('page-sidebar-collapsed page-sidebar-expanded')
+        $topNav.removeClass('header-pinned-nav')
+               .toggleClass('header-collapsed header-expanded')
+
+      # Save settings
+      $.cookie 'pin_nav', doPinNav, { path: '/' }
+
+      if $.cookie('pin_nav') is 'true' or doPinNav
+        tooltipText = 'Unpin navigation'
+
+      # Update tooltip text immediately
+      $tooltip.find('.tooltip-inner').text(tooltipText)
+
+      # Persist tooltip title
+      $pinBtn.attr('title', tooltipText).tooltip('fixTitle')
