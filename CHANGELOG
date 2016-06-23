@@ -1,6 +1,10 @@
 Please view this file on the master branch, on stable branches it's out of date.
 
-v 8.9.0 (unreleased)
+v 8.10.0 (unreleased)
+  - Wrap code blocks on Activies and Todos page. !4783 (winniehell)
+  - Fix MR-auto-close text added to description. !4836
+
+v 8.9.0
   - Fix builds API response not including commit data
   - Fix error when CI job variables key specified but not defined
   - Fix pipeline status when there are no builds in pipeline
@@ -16,6 +20,7 @@ v 8.9.0 (unreleased)
   - Fix issue with arrow keys not working in search autocomplete dropdown
   - Fix an issue where note polling stopped working if a window was in the
     background during a refresh.
+  - Pre-processing Markdown now only happens when needed
   - Make EmailsOnPushWorker use Sidekiq mailers queue
   - Redesign all Devise emails. !4297
   - Don't show 'Leave Project' to group members
@@ -148,6 +153,7 @@ v 8.9.0 (unreleased)
   - Ensure Todos counters doesn't count Todos for projects pending delete
   - Add left/right arrows horizontal navigation
   - Add tooltip to pin/unpin navbar
+  - Add new sub nav style to Wiki and Graphs sub navigation
 
 v 8.8.5
   - Import GitHub repositories respecting the API rate limit !4166
