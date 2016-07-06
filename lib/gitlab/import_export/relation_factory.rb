@@ -1,7 +1,6 @@
 module Gitlab
   module ImportExport
     class RelationFactory
-
       OVERRIDES = { snippets: :project_snippets,
                     pipelines: 'Ci::Pipeline',
                     statuses: 'commit_status',
@@ -11,6 +10,8 @@ module Gitlab
                     hooks: 'ProjectHook' }.freeze
 
       USER_REFERENCES = %w[author_id assignee_id updated_by_id user_id].freeze
+
+      BUILD_MODELS = %w[Ci::Build commit_status].freeze
 
       def self.create(*args)
         new(*args).create
@@ -31,6 +32,7 @@ module Gitlab
         update_user_references
         update_project_references
         reset_ci_tokens if @relation_name == 'Ci::Trigger'
+        @relation_hash['data'].deep_symbolize_keys! if @relation_name == :events && @relation_hash['data']
 
         generate_imported_object
       end
@@ -70,7 +72,7 @@ module Gitlab
       end
 
       def generate_imported_object
-        if @relation_sym == 'commit_status' # call #trace= method after assigning the other attributes
+        if BUILD_MODELS.include?(@relation_name) # call #trace= method after assigning the other attributes
           trace = @relation_hash.delete('trace')
           imported_object do |object|
             object.trace = trace

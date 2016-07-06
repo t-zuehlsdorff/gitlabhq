@@ -16,6 +16,7 @@ module Ci
 
     # Invalidate object and save if when touched
     after_touch :update_state
+    after_save :keep_around_commits
 
     def self.truncate_sha(sha)
       sha[0...8]
@@ -163,11 +164,24 @@ module Ci
     end
 
     def skip_ci?
-      git_commit_message =~ /(\[ci skip\])/ if git_commit_message
+      git_commit_message =~ /\[(ci skip|skip ci)\]/i if git_commit_message
     end
 
     def environments
       builds.where.not(environment: nil).success.pluck(:environment).uniq
+    end
+
+    # Manually set the notes for a Ci::Pipeline
+    # There is no ActiveRecord relation between Ci::Pipeline and notes
+    # as they are related to a commit sha. This method helps importing
+    # them using the +Gitlab::ImportExport::RelationFactory+ class.
+    def notes=(notes)
+      notes.each do |note|
+        note[:id] = nil
+        note[:commit_id] = sha
+        note[:noteable_id] = self['id']
+        note.save!
+      end
     end
 
     def notes
@@ -198,6 +212,11 @@ module Ci
       self.finished_at = statuses.finished_at
       self.duration = statuses.latest.duration
       save
+    end
+
+    def keep_around_commits
+      project.repository.keep_around(self.sha)
+      project.repository.keep_around(self.before_sha)
     end
   end
 end

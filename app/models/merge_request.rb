@@ -12,6 +12,8 @@ class MergeRequest < ActiveRecord::Base
 
   has_one :merge_request_diff, dependent: :destroy
 
+  has_many :events, as: :target, dependent: :destroy
+
   serialize :merge_params, Hash
 
   after_create :create_merge_request_diff, unless: :importing
@@ -114,6 +116,8 @@ class MergeRequest < ActiveRecord::Base
 
   scope :join_project, -> { joins(:target_project) }
   scope :references_project, -> { references(:target_project) }
+
+  after_save :keep_around_commit
 
   def self.reference_prefix
     '!'
@@ -264,19 +268,19 @@ class MergeRequest < ActiveRecord::Base
     self.title.sub(WIP_REGEX, "")
   end
 
-  def mergeable?
-    return false unless mergeable_state?
+  def mergeable?(skip_ci_check: false)
+    return false unless mergeable_state?(skip_ci_check: skip_ci_check)
 
     check_if_can_be_merged
 
     can_be_merged?
   end
 
-  def mergeable_state?
+  def mergeable_state?(skip_ci_check: false)
     return false unless open?
     return false if work_in_progress?
     return false if broken?
-    return false unless mergeable_ci_state?
+    return false unless skip_ci_check || mergeable_ci_state?
 
     true
   end
@@ -317,13 +321,6 @@ class MergeRequest < ActiveRecord::Base
       target_project_id: target_project_id,
       source_project_id: source_project_id
     )
-  end
-
-  # Returns the commit as a series of email patches.
-  #
-  # see "git format-patch"
-  def to_patch
-    target_project.repository.format_patch(diff_base_commit.sha, source_sha)
   end
 
   def hook_attrs
@@ -484,7 +481,7 @@ class MergeRequest < ActiveRecord::Base
   end
 
   def can_be_merged_by?(user)
-    ::Gitlab::GitAccess.new(user, project).can_push_to_branch?(target_branch)
+    ::Gitlab::GitAccess.new(user, project, 'web').can_push_to_branch?(target_branch)
   end
 
   def mergeable_ci_state?
@@ -541,12 +538,12 @@ class MergeRequest < ActiveRecord::Base
     "refs/merge-requests/#{iid}/head"
   end
 
-  def ref_is_fetched?
-    File.exist?(File.join(project.repository.path_to_repo, ref_path))
+  def ref_fetched?
+    project.repository.ref_exists?(ref_path)
   end
 
   def ensure_ref_fetched
-    fetch_ref unless ref_is_fetched?
+    fetch_ref unless ref_fetched?
   end
 
   def in_locked_state
@@ -604,5 +601,9 @@ class MergeRequest < ActiveRecord::Base
 
   def can_be_cherry_picked?
     merge_commit
+  end
+
+  def keep_around_commit
+    project.repository.keep_around(self.merge_commit_sha)
   end
 end

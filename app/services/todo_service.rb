@@ -159,8 +159,9 @@ class TodoService
   def create_todos(users, attributes)
     Array(users).map do |user|
       next if pending_todos(user, attributes).exists?
-      Todo.create(attributes.merge(user_id: user.id))
+      todo = Todo.create(attributes.merge(user_id: user.id))
       user.update_todos_count_cache
+      todo
     end
   end
 
@@ -236,7 +237,7 @@ class TodoService
   end
 
   def filter_mentioned_users(project, target, author)
-    mentioned_users = target.mentioned_users
+    mentioned_users = target.mentioned_users(author)
     mentioned_users = reject_users_without_access(mentioned_users, project, target)
     mentioned_users.delete(author)
     mentioned_users.uniq

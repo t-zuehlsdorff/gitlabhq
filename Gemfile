@@ -19,7 +19,7 @@ gem "pg", '~> 0.18.2', group: :postgres
 
 # Authentication libraries
 gem 'devise',                 '~> 4.0'
-gem 'doorkeeper',             '~> 3.1'
+gem 'doorkeeper',             '~> 4.0'
 gem 'omniauth',               '~> 1.3.1'
 gem 'omniauth-auth0',         '~> 1.4.1'
 gem 'omniauth-azure-oauth2',  '~> 0.0.6'
@@ -30,7 +30,7 @@ gem 'omniauth-github',        '~> 1.1.1'
 gem 'omniauth-gitlab',        '~> 1.0.0'
 gem 'omniauth-google-oauth2', '~> 0.2.0'
 gem 'omniauth-kerberos',      '~> 0.3.0', group: :kerberos
-gem 'omniauth-saml',          '~> 1.5.0'
+gem 'omniauth-saml',          '~> 1.6.0'
 gem 'omniauth-shibboleth',    '~> 1.2.0'
 gem 'omniauth-twitter',       '~> 1.2.0'
 gem 'omniauth_crowd',         '~> 2.2.0'
@@ -76,7 +76,7 @@ gem 'rack-cors',    '~> 0.4.0', require: 'rack/cors'
 gem "kaminari", "~> 0.17.0"
 
 # HAML
-gem "haml-rails", '~> 0.9.0'
+gem 'hamlit', '~> 2.5'
 
 # Files attachments
 gem "carrierwave", '~> 0.10.0'
@@ -91,6 +91,7 @@ gem 'fog-core', '~> 1.40'
 gem 'fog-local', '~> 0.3'
 gem 'fog-google', '~> 0.3'
 gem 'fog-openstack', '~> 0.1'
+gem 'fog-rackspace', '~> 0.1.1'
 
 # for aws storage
 gem "unf", '~> 0.1.4'
@@ -106,7 +107,7 @@ gem 'html-pipeline', '~> 1.11.0'
 gem 'task_list',     '~> 1.0.2', require: 'task_list/railtie'
 gem 'github-markup', '~> 1.3.1'
 gem 'redcarpet',     '~> 3.3.3'
-gem 'RedCloth',      '~> 4.2.9'
+gem 'RedCloth',      '~> 4.3.2'
 gem 'rdoc',          '~>3.6'
 gem 'org-ruby',      '~> 0.9.12'
 gem 'creole',        '~> 0.5.0'
@@ -222,7 +223,7 @@ gem 'jquery-turbolinks', '~> 2.1.0'
 gem 'addressable',        '~> 2.3.8'
 gem 'bootstrap-sass',     '~> 3.3.0'
 gem 'font-awesome-rails', '~> 4.6.1'
-gem 'gitlab_emoji',       '~> 0.3.0'
+gem 'gemojione',          '~> 2.6'
 gem 'gon',                '~> 6.0.1'
 gem 'jquery-atwho-rails', '~> 1.3.2'
 gem 'jquery-rails',       '~> 4.1.0'
@@ -234,7 +235,7 @@ gem 'net-ssh',            '~> 3.0.1'
 gem 'base32',             '~> 0.3.0'
 
 # Sentry integration
-gem 'sentry-raven', '~> 0.15'
+gem 'sentry-raven', '~> 1.1.0'
 
 gem 'premailer-rails', '~> 1.9.0'
 
@@ -250,7 +251,6 @@ group :development do
   gem 'brakeman', '~> 3.3.0', require: false
 
   gem 'letter_opener_web', '~> 1.3.0'
-  gem 'quiet_assets', '~> 1.0.2'
   gem 'rerun', '~> 0.11.0'
   gem 'bullet', require: false
   gem 'rblineprof', platform: :mri, require: false
@@ -264,7 +264,7 @@ group :development do
   gem "sdoc", '~> 0.3.20'
 
   # thin instead webrick
-  gem 'thin', '~> 1.6.1'
+  gem 'thin', '~> 1.7.0'
 end
 
 group :development, :test do
@@ -276,7 +276,7 @@ group :development, :test do
 
   gem 'database_cleaner',   '~> 1.4.0'
   gem 'factory_girl_rails', '~> 4.6.0'
-  gem 'rspec-rails',        '~> 3.4.0'
+  gem 'rspec-rails',        '~> 3.5.0'
   gem 'rspec-retry'
   gem 'spinach-rails',      '~> 0.2.1'
   gem 'spinach-rerun-reporter', '~> 0.0.2'
@@ -302,7 +302,6 @@ group :development, :test do
   gem 'rubocop', '~> 0.40.0', require: false
   gem 'rubocop-rspec', '~> 1.5.0', require: false
   gem 'scss_lint', '~> 0.47.0', require: false
-  gem 'coveralls', '~> 0.8.2', require: false
   gem 'simplecov', '~> 0.11.0', require: false
   gem 'flog', require: false
   gem 'flay', require: false
@@ -346,3 +345,7 @@ gem "paranoia", "~> 2.0"
 
 # Health check
 gem 'health_check', '~> 1.5.1'
+
+# System information
+gem 'vmstat', '~> 2.1.0'
+gem 'sys-filesystem', '~> 1.1.6'
