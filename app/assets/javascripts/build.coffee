@@ -1,9 +1,9 @@
-class @CiBuild
+class @Build
   @interval: null
   @state: null
 
-  constructor: (@build_url, @build_status, @state) ->
-    clearInterval(CiBuild.interval)
+  constructor: (@page_url, @build_url, @build_status, @state) ->
+    clearInterval(Build.interval)
 
     # Init breakpoint checker
     @bp = Breakpoints.get()
@@ -40,8 +40,8 @@ class @CiBuild
       # Check for new build output if user still watching build page
       # Only valid for runnig build when output changes during time
       #
-      CiBuild.interval = setInterval =>
-        if window.location.href.split("#").first() is @build_url
+      Build.interval = setInterval =>
+        if window.location.href.split("#").first() is @page_url
           @getBuildTrace()
       , 4000
 
@@ -57,7 +57,7 @@ class @CiBuild
 
   getBuildTrace: ->
     $.ajax
-      url: "#{@build_url}/trace.json?state=#{encodeURIComponent(@state)}"
+      url: "#{@page_url}/trace.json?state=#{encodeURIComponent(@state)}"
       dataType: "json"
       success: (log) =>
         if log.state
@@ -70,7 +70,7 @@ class @CiBuild
             $('.js-build-output').html log.html
           @checkAutoscroll()
         else if log.status isnt @build_status
-          Turbolinks.visit @build_url
+          Turbolinks.visit @page_url
 
   checkAutoscroll: ->
     $("html,body").scrollTop $("#build-trace").height()  if "enabled" is $("#autoscroll-button").data("state")
