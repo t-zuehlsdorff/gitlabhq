@@ -43,6 +43,26 @@ describe ProjectsController do
       end
     end
 
+    context "project with empty repo" do
+      let(:empty_project) { create(:project_empty_repo, :public) }
+
+      before { sign_in(user) }
+
+      User.project_views.keys.each do |project_view|
+        context "with #{project_view} view set" do
+          before do
+            user.update_attributes(project_view: project_view)
+
+            get :show, namespace_id: empty_project.namespace.path, id: empty_project.path
+          end
+
+          it "renders the empty project view" do
+            expect(response).to render_template('empty')
+          end
+        end
+      end
+    end
+
     context "rendering default project view" do
       render_views
 
@@ -89,15 +109,12 @@ describe ProjectsController do
           expect(response).to redirect_to("/#{public_project.path_with_namespace}")
         end
 
-
         # MySQL queries are case insensitive by default, so this spec would fail.
         if Gitlab::Database.postgresql?
           context "when there is also a match with the same casing" do
-
             let!(:other_project) { create(:project, :public, namespace: public_project.namespace, path: public_project.path.upcase) }
 
             it "loads the exactly matched project" do
-
               get :show, namespace_id: public_project.namespace.path, id: public_project.path.upcase
 
               expect(assigns(:project)).to eq(other_project)

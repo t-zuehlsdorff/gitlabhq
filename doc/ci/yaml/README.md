@@ -133,7 +133,7 @@ builds, including deploy builds. This can be an array or a multi-line string.
 ### after_script
 
 >**Note:**
-Introduced in GitLab 8.7 and requires Gitlab Runner v1.2 (not yet released)
+Introduced in GitLab 8.7 and requires Gitlab Runner v1.2
 
 `after_script` is used to define the command that will be run after for all
 builds. This has to be an array or a multi-line string.
@@ -757,12 +757,13 @@ Introduced in GitLab 8.6 and GitLab Runner v1.1.1.
 This feature should be used in conjunction with [`artifacts`](#artifacts) and
 allows you to define the artifacts to pass between different builds.
 
-Note that `artifacts` from previous [stages](#stages) are passed by default.
+Note that `artifacts` from all previous [stages](#stages) are passed by default.
 
 To use this feature, define `dependencies` in context of the job and pass
 a list of all previous builds from which the artifacts should be downloaded.
 You can only define builds from stages that are executed before the current one.
 An error will be shown if you define builds from the current stage or next ones.
+Defining an empty array will skip downloading any artifacts for that job.
 
 ---
 
@@ -811,7 +812,7 @@ deploy:
 It's possible to overwrite globally defined `before_script` and `after_script`:
 
 ```yaml
-before_script
+before_script:
 - global before script
 
 job:
@@ -985,11 +986,11 @@ directive defined in `.postgres_services` and `.mysql_services` respectively:
     - ruby
 
 test:postgres:
-  << *job_definition
+  <<: *job_definition
   services: *postgres_definition
 
 test:mysql:
-  << *job_definition
+  <<: *job_definition
   services: *mysql_definition
 ```
 

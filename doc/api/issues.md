@@ -78,7 +78,8 @@ Example response:
       "iid" : 6,
       "labels" : [],
       "subscribed" : false,
-      "user_notes_count": 1
+      "user_notes_count": 1,
+      "due_date": "2016-07-22"
    }
 ]
 ```
@@ -154,7 +155,8 @@ Example response:
       "updated_at" : "2016-01-04T15:31:46.176Z",
       "created_at" : "2016-01-04T15:31:46.176Z",
       "subscribed" : false,
-      "user_notes_count": 1
+      "user_notes_count": 1,
+      "due_date": null
    }
 ]
 ```
@@ -232,7 +234,8 @@ Example response:
       "updated_at" : "2016-01-04T15:31:46.176Z",
       "created_at" : "2016-01-04T15:31:46.176Z",
       "subscribed" : false,
-      "user_notes_count": 1
+      "user_notes_count": 1,
+      "due_date": "2016-07-22"
    }
 ]
 ```
@@ -295,7 +298,8 @@ Example response:
    "updated_at" : "2016-01-04T15:31:46.176Z",
    "created_at" : "2016-01-04T15:31:46.176Z",
    "subscribed": false,
-   "user_notes_count": 1
+   "user_notes_count": 1,
+   "due_date": null
 }
 ```
 
@@ -320,6 +324,7 @@ POST /projects/:id/issues
 | `milestone_id`  | integer | no  | The ID of a milestone to assign issue |
 | `labels`        | string  | no  | Comma-separated label names for an issue  |
 | `created_at`    | string  | no  | Date time string, ISO 8601 formatted, e.g. `2016-03-11T03:45:40Z` |
+| `due_date`      | string  | no   | Date time string in the format YEAR-MONTH-DAY, e.g. `2016-03-11` |
 
 ```bash
 curl -X POST -H "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/projects/4/issues?title=Issues%20with%20auth&labels=bug
@@ -351,7 +356,8 @@ Example response:
    "updated_at" : "2016-01-07T12:44:33.959Z",
    "milestone" : null,
    "subscribed" : true,
-   "user_notes_count": 0
+   "user_notes_count": 0,
+   "due_date": null
 }
 ```
 
@@ -379,6 +385,7 @@ PUT /projects/:id/issues/:issue_id
 | `labels`        | string  | no  | Comma-separated label names for an issue  |
 | `state_event`   | string  | no  | The state event of an issue. Set `close` to close the issue and `reopen` to reopen it |
 | `updated_at`    | string  | no  | Date time string, ISO 8601 formatted, e.g. `2016-03-11T03:45:40Z` |
+| `due_date`      | string  | no   | Date time string in the format YEAR-MONTH-DAY, e.g. `2016-03-11` |
 
 ```bash
 curl -X PUT -H "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/projects/4/issues/85?state_event=close
@@ -410,7 +417,8 @@ Example response:
    "assignee" : null,
    "milestone" : null,
    "subscribed" : true,
-   "user_notes_count": 0
+   "user_notes_count": 0,
+   "due_date": "2016-07-22"
 }
 ```
 
@@ -487,7 +495,8 @@ Example response:
     "state": "active",
     "avatar_url": "http://www.gravatar.com/avatar/7a190fecbaa68212a4b68aeb6e3acd10?s=80&d=identicon",
     "web_url": "https://gitlab.example.com/u/solon.cremin"
-  }
+  },
+  "due_date": null
 }
 ```
 
@@ -541,7 +550,8 @@ Example response:
     "state": "active",
     "avatar_url": "http://www.gravatar.com/avatar/7a190fecbaa68212a4b68aeb6e3acd10?s=80&d=identicon",
     "web_url": "https://gitlab.example.com/u/solon.cremin"
-  }
+  },
+  "due_date": null
 }
 ```
 
@@ -594,9 +604,101 @@ Example response:
     "id": 11,
     "state": "active",
     "avatar_url": "http://www.gravatar.com/avatar/5224fd70153710e92fb8bcf79ac29d67?s=80&d=identicon",
-    "web_url": "http://lgitlab.example.com/u/orville"
+    "web_url": "https://gitlab.example.com/u/orville"
   },
-  "subscribed": false
+  "subscribed": false,
+  "due_date": null
+}
+```
+
+## Create a todo
+
+Manually creates a todo for the current user on an issue. If the request is
+successful, status code `200` together with the created todo is returned. If
+there already exists a todo for the user on that issue, status code `304` is
+returned.
+
+```
+POST /projects/:id/issues/:issue_id/todo
+```
+
+| Attribute | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `id` | integer | yes | The ID of a project |
+| `issue_id` | integer | yes | The ID of a project's issue |
+
+```bash
+curl -X POST -H "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/projects/5/issues/93/todo
+```
+
+Example response:
+
+```json
+{
+  "id": 112,
+  "project": {
+    "id": 5,
+    "name": "Gitlab Ci",
+    "name_with_namespace": "Gitlab Org / Gitlab Ci",
+    "path": "gitlab-ci",
+    "path_with_namespace": "gitlab-org/gitlab-ci"
+  },
+  "author": {
+    "name": "Administrator",
+    "username": "root",
+    "id": 1,
+    "state": "active",
+    "avatar_url": "http://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80&d=identicon",
+    "web_url": "https://gitlab.example.com/u/root"
+  },
+  "action_name": "marked",
+  "target_type": "Issue",
+  "target": {
+    "id": 93,
+    "iid": 10,
+    "project_id": 5,
+    "title": "Vel voluptas atque dicta mollitia adipisci qui at.",
+    "description": "Tempora laboriosam sint magni sed voluptas similique.",
+    "state": "closed",
+    "created_at": "2016-06-17T07:47:39.486Z",
+    "updated_at": "2016-07-01T11:09:13.998Z",
+    "labels": [],
+    "milestone": {
+      "id": 26,
+      "iid": 1,
+      "project_id": 5,
+      "title": "v0.0",
+      "description": "Accusantium nostrum rerum quae quia quis nesciunt suscipit id.",
+      "state": "closed",
+      "created_at": "2016-06-17T07:47:33.832Z",
+      "updated_at": "2016-06-17T07:47:33.832Z",
+      "due_date": null
+    },
+    "assignee": {
+      "name": "Jarret O'Keefe",
+      "username": "francisca",
+      "id": 14,
+      "state": "active",
+      "avatar_url": "http://www.gravatar.com/avatar/a7fa515d53450023c83d62986d0658a8?s=80&d=identicon",
+      "web_url": "https://gitlab.example.com/u/francisca"
+    },
+    "author": {
+      "name": "Maxie Medhurst",
+      "username": "craig_rutherford",
+      "id": 12,
+      "state": "active",
+      "avatar_url": "http://www.gravatar.com/avatar/a0d477b3ea21970ce6ffcbb817b0b435?s=80&d=identicon",
+      "web_url": "https://gitlab.example.com/u/craig_rutherford"
+    },
+    "subscribed": true,
+    "user_notes_count": 7,
+    "upvotes": 0,
+    "downvotes": 0
+  },
+  "target_url": "https://gitlab.example.com/gitlab-org/gitlab-ci/issues/10",
+  "body": "Vel voluptas atque dicta mollitia adipisci qui at.",
+  "state": "pending",
+  "created_at": "2016-07-01T11:09:13.992Z"
 }
 ```
 

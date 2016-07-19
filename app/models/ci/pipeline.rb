@@ -6,6 +6,8 @@ module Ci
     self.table_name = 'ci_commits'
 
     belongs_to :project, class_name: '::Project', foreign_key: :gl_project_id
+    belongs_to :user
+
     has_many :statuses, class_name: 'CommitStatus', foreign_key: :commit_id
     has_many :builds, class_name: 'Ci::Build', foreign_key: :commit_id
     has_many :trigger_requests, dependent: :destroy, class_name: 'Ci::TriggerRequest', foreign_key: :commit_id
@@ -16,6 +18,7 @@ module Ci
 
     # Invalidate object and save if when touched
     after_touch :update_state
+    after_save :keep_around_commits
 
     def self.truncate_sha(sha)
       sha[0...8]
@@ -46,6 +49,10 @@ module Ci
 
     def git_commit_message
       commit.try(:message)
+    end
+
+    def git_commit_title
+      commit.try(:title)
     end
 
     def short_sha
@@ -211,6 +218,13 @@ module Ci
       self.finished_at = statuses.finished_at
       self.duration = statuses.latest.duration
       save
+    end
+
+    def keep_around_commits
+      return unless project
+      
+      project.repository.keep_around(self.sha)
+      project.repository.keep_around(self.before_sha)
     end
   end
 end

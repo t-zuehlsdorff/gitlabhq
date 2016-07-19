@@ -1,7 +1,6 @@
 module Gitlab
   module Lfs
     class Response
-
       def initialize(project, user, ci, request)
         @origin_project = project
         @project = storage_project(project)
@@ -48,6 +47,8 @@ module Gitlab
       end
 
       def render_storage_upload_store_response(oid, size, tmp_file_name)
+        return render_forbidden unless tmp_file_name
+
         render_response_to_push do
           render_lfs_upload_ok(oid, size, tmp_file_name)
         end

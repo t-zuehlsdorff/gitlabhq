@@ -56,6 +56,7 @@ class GitLabDropdownFilter
     return BLUR_KEYCODES.indexOf(keyCode) >= 0
 
   filter: (search_text) ->
+    @options.onFilter(search_text) if @options.onFilter
     data = @options.data()
 
     if data? and not @options.filterByText
@@ -195,6 +196,7 @@ class GitLabDropdown
       @filter = new GitLabDropdownFilter @filterInput,
         filterInputBlur: @filterInputBlur
         filterByText: @options.filterByText
+        onFilter: @options.onFilter
         remote: @options.filterRemote
         query: @options.data
         keys: searchFields
@@ -247,6 +249,8 @@ class GitLabDropdown
 
         if self.options.clicked
           self.options.clicked(selected, $el, e)
+
+        $el.trigger('blur')
 
   # Finds an element inside wrapper element
   getElement: (selector) ->
@@ -454,6 +458,8 @@ class GitLabDropdown
 
   rowClicked: (el) ->
     fieldName = @options.fieldName
+    isInput = $(@el).is('input')
+
     if @renderedData
       groupName = el.data('group')
       if groupName
@@ -464,10 +470,19 @@ class GitLabDropdown
         selectedObject = @renderedData[selectedIndex]
 
     value = if @options.id then @options.id(selectedObject, el) else selectedObject.id
-    field = @dropdown.parent().find("input[name='#{fieldName}'][value='#{value}']")
+
+    if isInput
+      field = $(@el)
+    else
+      field = @dropdown.parent().find("input[name='#{fieldName}'][value='#{value}']")
+
     if el.hasClass(ACTIVE_CLASS)
       el.removeClass(ACTIVE_CLASS)
-      field.remove()
+
+      if isInput
+        field.val('')
+      else
+        field.remove()
 
       # Toggle the dropdown label
       if @options.toggleLabel
@@ -488,7 +503,9 @@ class GitLabDropdown
     else
       if not @options.multiSelect or el.hasClass('dropdown-clear-active')
         @dropdown.find(".#{ACTIVE_CLASS}").removeClass ACTIVE_CLASS
-        @dropdown.parent().find("input[name='#{fieldName}']").remove()
+
+        unless isInput
+          @dropdown.parent().find("input[name='#{fieldName}']").remove()
 
       if !value?
         field.remove()
@@ -503,7 +520,9 @@ class GitLabDropdown
         if !field.length and fieldName
           @addInput(fieldName, value)
         else
-          field.val value
+          field
+            .val value
+            .trigger 'change'
 
       return selectedObject
 
@@ -530,7 +549,7 @@ class GitLabDropdown
     if $el.length
       e.preventDefault()
       e.stopImmediatePropagation()
-      $(selector, @dropdown)[0].click()
+      $el.first().trigger('click')
 
   addArrowKeyEvent: ->
     ARROW_KEY_CODES = [38, 40]

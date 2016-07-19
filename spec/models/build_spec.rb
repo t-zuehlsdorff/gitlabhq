@@ -208,7 +208,7 @@ describe Ci::Build, models: true do
       end
 
       before do
-        build.update_attributes(stage: 'stage')
+        build.update_attributes(stage: 'stage', yaml_variables: yaml_variables)
       end
 
       it { is_expected.to eq(predefined_variables + yaml_variables) }
@@ -260,22 +260,6 @@ describe Ci::Build, models: true do
 
           it { is_expected.to eq(predefined_variables + predefined_trigger_variable + yaml_variables + secure_variables + trigger_variables) }
         end
-
-        context 'when job variables are defined' do
-          ##
-          # Job-level variables are defined in gitlab_ci.yml fixture
-          #
-          context 'when job variables are unique' do
-            let(:build) { create(:ci_build, name: 'staging') }
-
-            it 'includes job variables' do
-              expect(subject).to include(
-                { key: :KEY1, value: 'value1', public: true },
-                { key: :KEY2, value: 'value2', public: true }
-              )
-            end
-          end
-        end
       end
     end
   end
@@ -323,7 +307,6 @@ describe Ci::Build, models: true do
         expect_any_instance_of(Ci::Runner).to receive(:can_pick?).and_return(false)
         is_expected.to be_falsey
       end
-
     end
   end
 
