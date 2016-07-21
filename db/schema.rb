@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160705163108) do
+ActiveRecord::Schema.define(version: 20160721081015) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -49,7 +49,7 @@ ActiveRecord::Schema.define(version: 20160705163108) do
     t.integer  "max_attachment_size",                   default: 10,          null: false
     t.integer  "default_project_visibility"
     t.integer  "default_snippet_visibility"
-    t.text     "restricted_signup_domains"
+    t.text     "domain_whitelist"
     t.boolean  "user_oauth_applications",               default: true
     t.string   "after_sign_out_path"
     t.integer  "session_expire_delay",                  default: 10080,       null: false
@@ -88,6 +88,8 @@ ActiveRecord::Schema.define(version: 20160705163108) do
     t.text     "after_sign_up_text"
     t.string   "repository_storage",                    default: "default"
     t.string   "enabled_git_access_protocol"
+    t.boolean  "domain_blacklist_enabled",              default: false
+    t.text     "domain_blacklist"
   end
 
   create_table "audit_events", force: :cascade do |t|
@@ -168,6 +170,8 @@ ActiveRecord::Schema.define(version: 20160705163108) do
     t.string   "environment"
     t.datetime "artifacts_expire_at"
     t.integer  "artifacts_size"
+    t.string   "when"
+    t.text     "yaml_variables"
   end
 
   add_index "ci_builds", ["commit_id", "stage_idx", "created_at"], name: "index_ci_builds_on_commit_id_and_stage_idx_and_created_at", using: :btree
@@ -199,6 +203,7 @@ ActiveRecord::Schema.define(version: 20160705163108) do
     t.datetime "started_at"
     t.datetime "finished_at"
     t.integer  "duration"
+    t.integer  "user_id"
   end
 
   add_index "ci_commits", ["gl_project_id", "sha"], name: "index_ci_commits_on_gl_project_id_and_sha", using: :btree
@@ -210,6 +215,7 @@ ActiveRecord::Schema.define(version: 20160705163108) do
   add_index "ci_commits", ["project_id"], name: "index_ci_commits_on_project_id", using: :btree
   add_index "ci_commits", ["sha"], name: "index_ci_commits_on_sha", using: :btree
   add_index "ci_commits", ["status"], name: "index_ci_commits_on_status", using: :btree
+  add_index "ci_commits", ["user_id"], name: "index_ci_commits_on_user_id", using: :btree
 
   create_table "ci_events", force: :cascade do |t|
     t.integer  "project_id"
@@ -624,8 +630,8 @@ ActiveRecord::Schema.define(version: 20160705163108) do
     t.integer  "merge_user_id"
     t.string   "merge_commit_sha"
     t.datetime "deleted_at"
+    t.string   "in_progress_merge_commit_sha"
   end
-
   add_index "merge_requests", ["assignee_id"], name: "index_merge_requests_on_assignee_id", using: :btree
   add_index "merge_requests", ["author_id"], name: "index_merge_requests_on_author_id", using: :btree
   add_index "merge_requests", ["created_at", "id"], name: "index_merge_requests_on_created_at_and_id", using: :btree
@@ -660,16 +666,17 @@ ActiveRecord::Schema.define(version: 20160705163108) do
   add_index "milestones", ["title"], name: "index_milestones_on_title_trigram", using: :gin, opclasses: {"title"=>"gin_trgm_ops"}
 
   create_table "namespaces", force: :cascade do |t|
-    t.string   "name",                                  null: false
-    t.string   "path",                                  null: false
+    t.string   "name",                                   null: false
+    t.string   "path",                                   null: false
     t.integer  "owner_id"
     t.datetime "created_at"
     t.datetime "updated_at"
     t.string   "type"
-    t.string   "description",           default: "",    null: false
+    t.string   "description",            default: "",    null: false
     t.string   "avatar"
-    t.boolean  "share_with_group_lock", default: false
-    t.integer  "visibility_level",      default: 20,    null: false
+    t.boolean  "share_with_group_lock",  default: false
+    t.integer  "visibility_level",       default: 20,    null: false
+    t.boolean  "request_access_enabled", default: true,  null: false
   end
 
   add_index "namespaces", ["created_at", "id"], name: "index_namespaces_on_created_at_and_id", using: :btree
@@ -838,6 +845,8 @@ ActiveRecord::Schema.define(version: 20160705163108) do
     t.boolean  "only_allow_merge_if_build_succeeds", default: false,     null: false
     t.boolean  "has_external_issue_tracker"
     t.string   "repository_storage",                 default: "default", null: false
+    t.boolean  "has_external_wiki"
+    t.boolean  "request_access_enabled",             default: true,      null: false
   end
 
   add_index "projects", ["builds_enabled", "shared_runners_enabled"], name: "index_projects_on_builds_enabled_and_shared_runners_enabled", using: :btree
@@ -858,11 +867,12 @@ ActiveRecord::Schema.define(version: 20160705163108) do
   add_index "projects", ["visibility_level"], name: "index_projects_on_visibility_level", using: :btree
 
   create_table "protected_branches", force: :cascade do |t|
-    t.integer  "project_id",                          null: false
-    t.string   "name",                                null: false
+    t.integer  "project_id",                           null: false
+    t.string   "name",                                 null: false
     t.datetime "created_at"
     t.datetime "updated_at"
-    t.boolean  "developers_can_push", default: false, null: false
+    t.boolean  "developers_can_push",  default: false, null: false
+    t.boolean  "developers_can_merge", default: false, null: false
   end
 
   add_index "protected_branches", ["project_id"], name: "index_protected_branches_on_project_id", using: :btree

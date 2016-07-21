@@ -1,4 +1,9 @@
-%table.text-file.code.js-syntax-highlight
+- too_big = diff_file.diff_lines.count > Commit::DIFF_SAFE_LINES
+- if too_big
+  .suppressed-container
+    %a.show-suppressed-diff.js-show-suppressed-diff Changes suppressed. Click to show.
+
+%table.text-file.code.js-syntax-highlight{ data: diff_view_data, class: too_big ? 'hide' : '' }
   - last_line = 0
   - diff_file.highlighted_diff_lines.each do |line|
     - last_line = line.new_pos

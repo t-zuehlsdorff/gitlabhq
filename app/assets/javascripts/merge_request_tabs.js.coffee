@@ -153,7 +153,6 @@ class @MergeRequestTabs
 
   loadDiff: (source) ->
     return if @diffsLoaded
-
     @_get
       url: "#{source}.json" + @_location.search
       success: (data) =>
@@ -165,6 +164,7 @@ class @MergeRequestTabs
         @diffsLoaded = true
         @scrollToElement("#diffs")
         @highlighSelectedLine()
+        @filesCommentButton = $('.files .diff-file').filesCommentButton()
 
         $(document)
           .off 'click', '.diff-line-num a'

@@ -2,6 +2,7 @@ require 'spec_helper'
 
 describe Gitlab::ImportExport::ProjectTreeRestorer, services: true do
   describe 'restore project tree' do
+
     let(:user) { create(:user) }
     let(:namespace) { create(:namespace, owner: user) }
     let(:shared) { Gitlab::ImportExport::Shared.new(relative_path: "", project_path: 'path') }
@@ -30,6 +31,14 @@ describe Gitlab::ImportExport::ProjectTreeRestorer, services: true do
         expect(Event.where.not(data: nil).first.data[:ref]).not_to be_empty
       end
 
+      it 'preserves updated_at on issues' do
+        restored_project_json
+
+        issue = Issue.where(description: 'Aliquam enim illo et possimus.').first
+
+        expect(issue.reload.updated_at.to_s).to eq('2016-06-14 15:02:47 UTC')
+      end
+
       context 'event at forth level of the tree' do
         let(:event) { Event.where(title: 'test levels').first }
 
@@ -44,6 +53,12 @@ describe Gitlab::ImportExport::ProjectTreeRestorer, services: true do
         it 'event belongs to note, belongs to merge request, belongs to a project' do
           expect(event.note.noteable.project).not_to be_nil
         end
+      end
+
+      it 'has the correct data for merge request st_diffs' do
+        # makes sure we are renaming the custom method +utf8_st_diffs+ into +st_diffs+
+
+        expect { restored_project_json }.to change(MergeRequestDiff.where.not(st_diffs: nil), :count).by(9)
       end
     end
   end
