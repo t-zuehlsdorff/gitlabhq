@@ -130,6 +130,36 @@ describe Repository, models: true do
     end
   end
 
+  describe :commit_file do
+    it 'commits change to a file successfully' do
+      expect do
+        repository.commit_file(user, 'CHANGELOG', 'Changelog!',
+                              'Updates file content',
+                              'master', true)
+      end.to change { repository.commits('master').count }.by(1)
+
+      blob = repository.blob_at('master', 'CHANGELOG')
+
+      expect(blob.data).to eq('Changelog!')
+    end
+  end
+
+  describe :update_file do
+    it 'updates filename successfully' do
+      expect do
+        repository.update_file(user, 'NEWLICENSE', 'Copyright!',
+                                     branch: 'master',
+                                     previous_path: 'LICENSE',
+                                     message: 'Changes filename')
+      end.to change { repository.commits('master').count }.by(1)
+
+      files = repository.ls_files('master')
+
+      expect(files).not_to include('LICENSE')
+      expect(files).to include('NEWLICENSE')
+    end
+  end
+
   describe "search_files" do
     let(:results) { repository.search_files('feature', 'master') }
     subject { results }
@@ -414,6 +444,43 @@ describe Repository, models: true do
         expect do
           repository.commit_with_hooks(user, 'feature') { sample_commit.id }
         end.to raise_error(GitHooksService::PreReceiveError)
+      end
+    end
+
+    context 'when target branch is different from source branch' do
+      before do
+        allow_any_instance_of(Gitlab::Git::Hook).to receive(:trigger).and_return([true, ''])
+      end
+
+      it 'expires branch cache' do
+        expect(repository).not_to receive(:expire_exists_cache)
+        expect(repository).not_to receive(:expire_root_ref_cache)
+        expect(repository).not_to receive(:expire_emptiness_caches)
+        expect(repository).to     receive(:expire_branches_cache)
+        expect(repository).to     receive(:expire_has_visible_content_cache)
+        expect(repository).to     receive(:expire_branch_count_cache)
+
+        repository.commit_with_hooks(user, 'new-feature') { sample_commit.id }
+      end
+    end
+
+    context 'when repository is empty' do
+      before do
+        allow_any_instance_of(Gitlab::Git::Hook).to receive(:trigger).and_return([true, ''])
+      end
+
+      it 'expires creation and branch cache' do
+        empty_repository = create(:empty_project, :empty_repo).repository
+
+        expect(empty_repository).to receive(:expire_exists_cache)
+        expect(empty_repository).to receive(:expire_root_ref_cache)
+        expect(empty_repository).to receive(:expire_emptiness_caches)
+        expect(empty_repository).to receive(:expire_branches_cache)
+        expect(empty_repository).to receive(:expire_has_visible_content_cache)
+        expect(empty_repository).to receive(:expire_branch_count_cache)
+
+        empty_repository.commit_file(user, 'CHANGELOG', 'Changelog!',
+                                     'Updates file content', 'master', false)
       end
     end
   end
@@ -719,6 +786,30 @@ describe Repository, models: true do
         repository.before_delete
       end
 
+      it 'flushes the tags cache' do
+        expect(repository).to receive(:expire_tags_cache)
+
+        repository.before_delete
+      end
+
+      it 'flushes the tag count cache' do
+        expect(repository).to receive(:expire_tag_count_cache)
+
+        repository.before_delete
+      end
+
+      it 'flushes the branches cache' do
+        expect(repository).to receive(:expire_branches_cache)
+
+        repository.before_delete
+      end
+
+      it 'flushes the branch count cache' do
+        expect(repository).to receive(:expire_branch_count_cache)
+
+        repository.before_delete
+      end
+
       it 'flushes the root ref cache' do
         expect(repository).to receive(:expire_root_ref_cache)
 
@@ -745,6 +836,30 @@ describe Repository, models: true do
 
       it 'flushes the caches that depend on repository data' do
         expect(repository).to receive(:expire_cache)
+
+        repository.before_delete
+      end
+
+      it 'flushes the tags cache' do
+        expect(repository).to receive(:expire_tags_cache)
+
+        repository.before_delete
+      end
+
+      it 'flushes the tag count cache' do
+        expect(repository).to receive(:expire_tag_count_cache)
+
+        repository.before_delete
+      end
+
+      it 'flushes the branches cache' do
+        expect(repository).to receive(:expire_branches_cache)
+
+        repository.before_delete
+      end
+
+      it 'flushes the branch count cache' do
+        expect(repository).to receive(:expire_branch_count_cache)
 
         repository.before_delete
       end
@@ -1094,35 +1209,31 @@ describe Repository, models: true do
     end
   end
 
-  describe '.clean_old_archives' do
-    let(:path) { Gitlab.config.gitlab.repository_downloads_path }
-
-    context 'when the downloads directory does not exist' do
-      it 'does not remove any archives' do
-        expect(File).to receive(:directory?).with(path).and_return(false)
-
-        expect(Gitlab::Popen).not_to receive(:popen)
-
-        described_class.clean_old_archives
-      end
-    end
-
-    context 'when the downloads directory exists' do
-      it 'removes old archives' do
-        expect(File).to receive(:directory?).with(path).and_return(true)
-
-        expect(Gitlab::Popen).to receive(:popen)
-
-        described_class.clean_old_archives
-      end
-    end
-  end
-
   describe "#keep_around" do
+    it "does not fail if we attempt to reference bad commit" do
+      expect(repository.kept_around?('abc1234')).to be_falsey
+    end
+
     it "stores a reference to the specified commit sha so it isn't garbage collected" do
       repository.keep_around(sample_commit.id)
 
       expect(repository.kept_around?(sample_commit.id)).to be_truthy
+    end
+
+    it "attempting to call keep_around on truncated ref does not fail" do
+      repository.keep_around(sample_commit.id)
+      ref = repository.send(:keep_around_ref_name, sample_commit.id)
+      path = File.join(repository.path, ref)
+      # Corrupt the reference
+      File.truncate(path, 0)
+
+      expect(repository.kept_around?(sample_commit.id)).to be_falsey
+
+      repository.keep_around(sample_commit.id)
+
+      expect(repository.kept_around?(sample_commit.id)).to be_falsey
+
+      File.delete(path)
     end
   end
 

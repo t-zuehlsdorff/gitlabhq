@@ -11,16 +11,6 @@ class Repository
 
   attr_accessor :path_with_namespace, :project
 
-  def self.clean_old_archives
-    Gitlab::Metrics.measure(:clean_old_archives) do
-      repository_downloads_path = Gitlab.config.gitlab.repository_downloads_path
-
-      return unless File.directory?(repository_downloads_path)
-
-      Gitlab::Popen.popen(%W(find #{repository_downloads_path} -not -path #{repository_downloads_path} -mmin +120 -delete))
-    end
-  end
-
   def initialize(path_with_namespace, project)
     @path_with_namespace = path_with_namespace
     @project = project
@@ -216,11 +206,23 @@ class Repository
 
     return if kept_around?(sha)
 
-    rugged.references.create(keep_around_ref_name(sha), sha)
+    # This will still fail if the file is corrupted (e.g. 0 bytes)
+    begin
+      rugged.references.create(keep_around_ref_name(sha), sha, force: true)
+    rescue Rugged::ReferenceError => ex
+      Rails.logger.error "Unable to create keep-around reference for repository #{path}: #{ex}"
+    rescue Rugged::OSError => ex
+      raise unless ex.message =~ /Failed to create locked file/ && ex.message =~ /File exists/
+      Rails.logger.error "Unable to create keep-around reference for repository #{path}: #{ex}"
+    end
   end
 
   def kept_around?(sha)
-    ref_exists?(keep_around_ref_name(sha))
+    begin
+      ref_exists?(keep_around_ref_name(sha))
+    rescue Rugged::ReferenceError
+      false
+    end
   end
 
   def tag_names
@@ -392,6 +394,11 @@ class Repository
 
     expire_cache if exists?
 
+    # expire cache that don't depend on repository data (when expiring)
+    expire_tags_cache
+    expire_tag_count_cache
+    expire_branches_cache
+    expire_branch_count_cache
     expire_root_ref_cache
     expire_emptiness_caches
     expire_exists_cache
@@ -606,6 +613,8 @@ class Repository
   # Remove archives older than 2 hours
   def branches_sorted_by(value)
     case value
+    when 'name'
+      branches.sort_by(&:name)
     when 'recently_updated'
       branches.sort do |a, b|
         commit(b.target).committed_date <=> commit(a.target).committed_date
@@ -730,6 +739,33 @@ class Repository
       }
 
       Gitlab::Git::Blob.commit(raw_repository, options)
+    end
+  end
+
+  def update_file(user, path, content, branch:, previous_path:, message:)
+    commit_with_hooks(user, branch) do |ref|
+      committer = user_to_committer(user)
+      options = {}
+      options[:committer] = committer
+      options[:author] = committer
+      options[:commit] = {
+        message: message,
+        branch: ref,
+        update_ref: false
+      }
+
+      options[:file] = {
+        content: content,
+        path: path,
+        update: true
+      }
+
+      if previous_path
+        options[:file][:previous_path] = previous_path
+        Gitlab::Git::Blob.rename(raw_repository, options)
+      else
+        Gitlab::Git::Blob.commit(raw_repository, options)
+      end
     end
   end
 
@@ -952,6 +988,10 @@ class Repository
       if was_empty || !target_branch
         # Create branch
         rugged.references.create(ref, newrev)
+
+        # If repo was empty expire cache
+        after_create if was_empty
+        after_create_branch
       else
         # Update head
         current_head = find_branch(branch).target
@@ -1000,7 +1040,7 @@ class Repository
   private
 
   def cache
-    @cache ||= RepositoryCache.new(path_with_namespace)
+    @cache ||= RepositoryCache.new(path_with_namespace, @project.id)
   end
 
   def head_exists?

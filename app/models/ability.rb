@@ -172,7 +172,7 @@ class Ability
           rules << :read_build if project.public_builds?
 
           unless owner || project.team.member?(user) || project_group_member?(project, user)
-            rules << :request_access
+            rules << :request_access if project.request_access_enabled
           end
         end
 
@@ -373,7 +373,7 @@ class Ability
       end
 
       if group.public? || (group.internal? && !user.external?)
-        rules << :request_access unless group.users.include?(user)
+        rules << :request_access if group.request_access_enabled && group.users.exclude?(user)
       end
 
       rules.flatten
@@ -386,6 +386,18 @@ class Ability
       return true if group.users.include?(user)
 
       GroupProjectsFinder.new(group).execute(user).any?
+    end
+
+    def can_edit_note?(user, note)
+      return false if !note.editable? || !user.present?
+      return true if note.author == user || user.admin?
+
+      if note.project
+        max_access_level = note.project.team.max_member_access(user.id)
+        max_access_level >= Gitlab::Access::MASTER
+      else
+        false
+      end
     end
 
     def namespace_abilities(user, namespace)

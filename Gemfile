@@ -9,6 +9,7 @@ gem 'responders', '~> 2.0'
 # Specify a sprockets version due to increased performance
 # See https://gitlab.com/gitlab-org/gitlab-ce/issues/6069
 gem 'sprockets', '~> 3.6.0'
+gem 'sprockets-es6'
 
 # Default values for AR models
 gem 'default_value_for', '~> 3.0.0'
@@ -274,7 +275,7 @@ group :development, :test do
   gem 'awesome_print', '~> 1.2.0', require: false
   gem 'fuubar', '~> 2.0.0'
 
-  gem 'database_cleaner',   '~> 1.4.0'
+  gem 'database_cleaner',   '~> 1.5.0'
   gem 'factory_girl_rails', '~> 4.6.0'
   gem 'rspec-rails',        '~> 3.5.0'
   gem 'rspec-retry',        '~> 0.4.5'
@@ -333,6 +334,8 @@ gem 'mail_room', '~> 0.8'
 
 gem 'email_reply_parser', '~> 0.5.8'
 
+gem 'ruby-prof', '~> 0.15.9'
+
 ## CI
 gem 'activerecord-session_store', '~> 1.0.0'
 gem 'nested_form', '~> 0.3.2'
@@ -347,8 +350,5 @@ gem 'paranoia', '~> 2.0'
 gem 'health_check', '~> 2.1.0'
 
 # System information
-gem 'vmstat', '~> 2.1.0'
+gem 'vmstat', '~> 2.1.1'
 gem 'sys-filesystem', '~> 1.1.6'
-
-# Secure headers for Content Security Policy
-gem 'secure_headers', '~> 3.3'
