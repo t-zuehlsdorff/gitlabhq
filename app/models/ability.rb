@@ -47,6 +47,16 @@ class Ability
       end
     end
 
+    # Returns an Array of Issues that can be read by the given user.
+    #
+    # issues - The issues to reduce down to those readable by the user.
+    # user - The User for which to check the issues
+    def issues_readable_by_user(issues, user = nil)
+      return issues if user && user.admin?
+
+      issues.select { |issue| issue.visible_to_user?(user) }
+    end
+
     # List of possible abilities for anonymous user
     def anonymous_abilities(user, subject)
       if subject.is_a?(PersonalSnippet)
@@ -386,6 +396,18 @@ class Ability
       return true if group.users.include?(user)
 
       GroupProjectsFinder.new(group).execute(user).any?
+    end
+
+    def can_edit_note?(user, note)
+      return false if !note.editable? || !user.present?
+      return true if note.author == user || user.admin?
+
+      if note.project
+        max_access_level = note.project.team.max_member_access(user.id)
+        max_access_level >= Gitlab::Access::MASTER
+      else
+        false
+      end
     end
 
     def namespace_abilities(user, namespace)
