@@ -1,7 +1,7 @@
-image: "ruby:2.3"
+image: "ruby:2.3.1"
 
 cache:
-  key: "ruby-23"
+  key: "ruby-231"
   paths:
   - vendor/apt
   - vendor/ruby
@@ -15,6 +15,7 @@ variables:
   USE_DB: "true"
   USE_BUNDLE_INSTALL: "true"
   GIT_DEPTH: "20"
+  PHANTOMJS_VERSION: "2.1.1"
 
 before_script:
   - source ./scripts/prepare_build.sh
