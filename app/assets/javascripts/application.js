@@ -26,8 +26,6 @@
 /*= require bootstrap/tooltip */
 /*= require bootstrap/popover */
 /*= require select2 */
-/*= require ace-rails-ap */
-/*= require ace/ext-searchbox */
 /*= require underscore */
 /*= require dropzone */
 /*= require mousetrap */
@@ -153,7 +151,9 @@
       });
     });
     $('.remove-row').bind('ajax:success', function() {
-      return $(this).closest('li').fadeOut();
+      $(this).tooltip('destroy')
+        .closest('li')
+        .fadeOut();
     });
     $('.js-remove-tr').bind('ajax:before', function() {
       return $(this).hide();
@@ -225,10 +225,13 @@
     });
     $body.on("click", ".js-toggle-diff-comments", function(e) {
       var $this = $(this);
-      var showComments = $this.hasClass('active');
-
       $this.toggleClass('active');
-      $this.closest(".diff-file").find(".notes_holder").toggle(showComments);
+      var notesHolders = $this.closest('.diff-file').find('.notes_holder');
+      if ($this.hasClass('active')) {
+        notesHolders.show();
+      } else {
+        notesHolders.hide();
+      }
       return e.preventDefault();
     });
     $document.off("click", '.js-confirm-danger');
