@@ -49,7 +49,7 @@ module API
     class ProjectHook < Hook
       expose :project_id, :push_events
       expose :issues_events, :merge_requests_events, :tag_push_events
-      expose :note_events, :build_events, :pipeline_events
+      expose :note_events, :build_events, :pipeline_events, :wiki_page_events
       expose :enable_ssl_verification
     end
 
@@ -90,6 +90,7 @@ module API
       expose :shared_with_groups do |project, options|
         SharedGroup.represent(project.project_group_links.all, options)
       end
+      expose :only_allow_merge_if_build_succeeds
     end
 
     class Member < UserBasic
@@ -177,6 +178,10 @@ module API
 
       # TODO (rspeicher): Deprecated; remove in 9.0
       expose(:expires_at) { |snippet| nil }
+
+      expose :web_url do |snippet, options|
+        Gitlab::UrlBuilder.build(snippet)
+      end
     end
 
     class ProjectEntity < Grape::Entity
@@ -206,6 +211,10 @@ module API
       expose :user_notes_count
       expose :upvotes, :downvotes
       expose :due_date
+
+      expose :web_url do |issue, options|
+        Gitlab::UrlBuilder.build(issue)
+      end
     end
 
     class ExternalIssue < Grape::Entity
@@ -229,6 +238,10 @@ module API
       expose :user_notes_count
       expose :should_remove_source_branch?, as: :should_remove_source_branch
       expose :force_remove_source_branch?, as: :force_remove_source_branch
+
+      expose :web_url do |merge_request, options|
+        Gitlab::UrlBuilder.build(merge_request)
+      end
     end
 
     class MergeRequestChanges < MergeRequest
@@ -514,13 +527,12 @@ module API
       expose :duration
     end
 
-    class Environment < Grape::Entity
-      expose :id, :name, :external_url
-      expose :project, using: Entities::Project
-    end
-
     class EnvironmentBasic < Grape::Entity
       expose :id, :name, :external_url
+    end
+
+    class Environment < EnvironmentBasic
+      expose :project, using: Entities::Project
     end
 
     class Deployment < Grape::Entity

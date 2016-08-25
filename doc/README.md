@@ -2,6 +2,7 @@
 
 ## User documentation
 
+- [Account Security](user/account/security.md) Securing your account via two-factor authentication, etc.
 - [API](api/README.md) Automate GitLab via a simple and powerful API.
 - [CI/CD](ci/README.md) GitLab Continuous Integration (CI) and Continuous Delivery (CD) getting started, `.gitlab-ci.yml` options, and examples.
 - [GitLab as OAuth2 authentication service provider](integration/oauth_provider.md). It allows you to login to other applications from GitLab.
@@ -18,6 +19,7 @@
 - [SSH](ssh/README.md) Setup your ssh keys and deploy keys for secure access to your projects.
 - [Webhooks](web_hooks/web_hooks.md) Let GitLab notify you when new code has been pushed to your project.
 - [Workflow](workflow/README.md) Using GitLab functionality and importing projects from GitHub and SVN.
+- [Koding](user/project/koding.md) Learn how to use Koding, the online IDE.
 
 ## Administrator documentation
 
@@ -29,6 +31,7 @@
 - [Restart GitLab](administration/restart_gitlab.md) Learn how to restart GitLab and its components.
 - [Integration](integration/README.md) How to integrate with systems such as JIRA, Redmine, Twitter.
 - [Issue closing](customization/issue_closing.md) Customize how to close an issue from commit messages.
+- [Koding](administration/integration/koding.md) Set up Koding to use with GitLab.
 - [Libravatar](customization/libravatar.md) Use Libravatar for user avatars.
 - [Log system](administration/logs.md) Log system.
 - [Environment Variables](administration/environment_variables.md) to configure GitLab.

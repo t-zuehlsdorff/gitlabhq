@@ -1,6 +1,24 @@
 Please view this file on the master branch, on stable branches it's out of date.
 
-v 8.11.0 (unreleased)
+v 8.12.0 (unreleased)
+  - Add two-factor recovery endpoint to internal API !5510
+  - Change merge_error column from string to text type
+  - Add `web_url` field to issue, merge request, and snippet API objects (Ben Boeckel)
+  - Optimistic locking for Issues and Merge Requests (title and description overriding prevention)
+  - Add `wiki_page_events` to project hook APIs (Ben Boeckel)
+  - Add Sentry logging to API calls
+  - Added tests for diff notes
+  - Added 'only_allow_merge_if_build_succeeds' project setting in the API. !5930 (Duck)
+
+v 8.11.2 (unreleased)
+  - Show "Create Merge Request" widget for push events to fork projects on the source project
+
+v 8.11.1 (unreleased)
+  - Does not halt the GitHub import process when an error occurs
+  - Fix file links on project page when default view is Files !5933
+  - Change using size to use count and caching it for number of group members
+
+v 8.11.0
   - Use test coverage value from the latest successful pipeline in badge. !5862
   - Add test coverage report badge. !5708
   - Remove the http_parser.rb dependency by removing the tinder gem. !5758 (tbalthazar)
@@ -163,6 +181,7 @@ v 8.11.0 (unreleased)
   - Eliminate unneeded calls to Repository#blob_at when listing commits with no path
   - Update gitlab_git gem to 10.4.7
   - Simplify SQL queries of marking a todo as done
+  - Update merge_requests.md with a simpler way to check out a merge request. !5944
 
 v 8.10.7
   - Upgrade Hamlit to 2.6.1. !5873
@@ -195,8 +214,6 @@ v 8.10.3
   - Ignore invalid IPs in X-Forwarded-For when trusted proxies are configured. !5584
   - Trim extra displayed carriage returns in diffs and files with CRLFs. !5588
   - Fix label already exist error message in the right sidebar.
-
-v 8.10.3 (unreleased)
 
 v 8.10.2
   - User can now search branches by name. !5144
