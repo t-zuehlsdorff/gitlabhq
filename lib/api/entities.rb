@@ -78,7 +78,7 @@ module API
       expose :path, :path_with_namespace
       expose :issues_enabled, :merge_requests_enabled, :wiki_enabled, :builds_enabled, :snippets_enabled, :container_registry_enabled
       expose :created_at, :last_activity_at
-      expose :shared_runners_enabled
+      expose :shared_runners_enabled, :lfs_enabled
       expose :creator_id
       expose :namespace
       expose :forked_from_project, using: Entities::BasicProjectDetails, if: lambda{ |project, options| project.forked? }
@@ -246,6 +246,19 @@ module API
 
     class MergeRequestChanges < MergeRequest
       expose :diffs, as: :changes, using: Entities::RepoDiff do |compare, _|
+        compare.raw_diffs(all_diffs: true).to_a
+      end
+    end
+
+    class MergeRequestDiff < Grape::Entity
+      expose :id, :head_commit_sha, :base_commit_sha, :start_commit_sha,
+        :created_at, :merge_request_id, :state, :real_size
+    end
+
+    class MergeRequestDiffFull < MergeRequestDiff
+      expose :commits, using: Entities::RepoCommit
+
+      expose :diffs, using: Entities::RepoDiff do |compare, _|
         compare.raw_diffs(all_diffs: true).to_a
       end
     end
