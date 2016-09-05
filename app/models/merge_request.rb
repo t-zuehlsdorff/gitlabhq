@@ -240,12 +240,12 @@ class MergeRequest < ActiveRecord::Base
 
   def source_branch_head
     source_branch_ref = @source_branch_sha || source_branch
-    source_project.repository.commit(source_branch) if source_branch_ref
+    source_project.repository.commit(source_branch_ref) if source_branch_ref
   end
 
   def target_branch_head
     target_branch_ref = @target_branch_sha || target_branch
-    target_project.repository.commit(target_branch) if target_branch_ref
+    target_project.repository.commit(target_branch_ref) if target_branch_ref
   end
 
   def branch_merge_base_commit
@@ -411,7 +411,7 @@ class MergeRequest < ActiveRecord::Base
   def can_remove_source_branch?(current_user)
     !source_project.protected_branch?(source_branch) &&
       !source_project.root_ref?(source_branch) &&
-      Ability.abilities.allowed?(current_user, :push_code, source_project) &&
+      Ability.allowed?(current_user, :push_code, source_project) &&
       diff_head_commit == source_branch_head
   end
 
