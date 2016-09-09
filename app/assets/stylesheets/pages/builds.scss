@@ -48,12 +48,6 @@
       margin-bottom: 10px;
     }
   }
-
-  .page-sidebar-collapsed {
-    .scroll-controls {
-      left: 70px;
-    }
-  }
 }
 
 .build-header {
@@ -113,6 +107,16 @@
 
   .block {
     width: 100%;
+  }
+
+  .js-build-variable {
+    color: $code-color;
+  }
+
+  .js-build-value {
+    padding: 2px 4px;
+    color: $black;
+    background-color: $white-light;
   }
 
   .build-sidebar-header {
