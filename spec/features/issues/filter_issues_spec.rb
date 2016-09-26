@@ -101,7 +101,7 @@ describe 'Filter issues', feature: true do
       expect(find('.js-label-select .dropdown-toggle-text')).to have_content('No Label')
     end
 
-    it 'filters by no label' do
+    it 'filters by a label' do
       find('.dropdown-menu-labels a', text: label.title).click
       page.within '.labels-filter' do
         expect(page).to have_content label.title
@@ -109,13 +109,40 @@ describe 'Filter issues', feature: true do
       expect(find('.js-label-select .dropdown-toggle-text')).to have_content(label.title)
     end
 
-    it 'filters by wont fix labels' do
+    it "filters by `won't fix` and another label" do
       find('.dropdown-menu-labels a', text: label.title).click
       page.within '.labels-filter' do
         expect(page).to have_content wontfix.title
         click_link wontfix.title
       end
       expect(find('.js-label-select .dropdown-toggle-text')).to have_content(wontfix.title)
+    end
+
+    it "filters by `won't fix` label followed by another label after page load" do
+      find('.dropdown-menu-labels a', text: wontfix.title).click
+      # Close label dropdown to load
+      find('body').click
+      expect(find('.filtered-labels')).to have_content(wontfix.title)
+
+      find('.js-label-select').click
+      wait_for_ajax
+      find('.dropdown-menu-labels a', text: label.title).click
+      # Close label dropdown to load
+      find('body').click
+      expect(find('.filtered-labels')).to have_content(label.title)
+
+      find('.js-label-select').click
+      wait_for_ajax
+      expect(find('.dropdown-menu-labels li', text: wontfix.title)).to have_css('.is-active')
+      expect(find('.dropdown-menu-labels li', text: label.title)).to have_css('.is-active')
+    end
+
+    it "selects and unselects `won't fix`" do
+      find('.dropdown-menu-labels a', text: wontfix.title).click
+      find('.dropdown-menu-labels a', text: wontfix.title).click
+      # Close label dropdown to load
+      find('body').click
+      expect(page).not_to have_css('.filtered-labels')
     end
   end
 
@@ -179,7 +206,7 @@ describe 'Filter issues', feature: true do
 
     context 'only text', js: true do
       it 'filters issues by searched text' do
-        fill_in 'issue_search', with: 'Bug'
+        fill_in 'issuable_search', with: 'Bug'
 
         page.within '.issues-list' do
           expect(page).to have_selector('.issue', count: 2)
@@ -187,7 +214,7 @@ describe 'Filter issues', feature: true do
       end
 
       it 'does not show any issues' do
-        fill_in 'issue_search', with: 'testing'
+        fill_in 'issuable_search', with: 'testing'
 
         page.within '.issues-list' do
           expect(page).not_to have_selector('.issue')
@@ -197,7 +224,7 @@ describe 'Filter issues', feature: true do
 
     context 'text and dropdown options', js: true do
       it 'filters by text and label' do
-        fill_in 'issue_search', with: 'Bug'
+        fill_in 'issuable_search', with: 'Bug'
 
         page.within '.issues-list' do
           expect(page).to have_selector('.issue', count: 2)
@@ -215,7 +242,7 @@ describe 'Filter issues', feature: true do
       end
 
       it 'filters by text and milestone' do
-        fill_in 'issue_search', with: 'Bug'
+        fill_in 'issuable_search', with: 'Bug'
 
         page.within '.issues-list' do
           expect(page).to have_selector('.issue', count: 2)
@@ -232,7 +259,7 @@ describe 'Filter issues', feature: true do
       end
 
       it 'filters by text and assignee' do
-        fill_in 'issue_search', with: 'Bug'
+        fill_in 'issuable_search', with: 'Bug'
 
         page.within '.issues-list' do
           expect(page).to have_selector('.issue', count: 2)
@@ -249,7 +276,7 @@ describe 'Filter issues', feature: true do
       end
 
       it 'filters by text and author' do
-        fill_in 'issue_search', with: 'Bug'
+        fill_in 'issuable_search', with: 'Bug'
 
         page.within '.issues-list' do
           expect(page).to have_selector('.issue', count: 2)

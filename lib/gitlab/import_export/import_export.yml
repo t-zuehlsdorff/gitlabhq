@@ -10,6 +10,7 @@ project_tree:
     - milestone:
       - :events
   - snippets:
+    - :award_emoji
     - notes:
         :author
   - :releases
@@ -35,7 +36,9 @@ project_tree:
   - :deploy_keys
   - :services
   - :hooks
-  - :protected_branches
+  - protected_branches:
+    - :merge_access_levels
+    - :push_access_levels
   - :labels
   - milestones:
     - :events
@@ -64,6 +67,8 @@ excluded_attributes:
     - :milestone_id
   merge_requests:
     - :milestone_id
+  award_emoji:
+    - :awardable_id
 
 methods:
   statuses:

@@ -249,7 +249,7 @@ module ApplicationHelper
       milestone_title: params[:milestone_title],
       assignee_id: params[:assignee_id],
       author_id: params[:author_id],
-      issue_search: params[:issue_search],
+      search: params[:search],
       label_name: params[:label_name]
     }
 

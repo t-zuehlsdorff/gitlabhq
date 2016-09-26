@@ -1137,12 +1137,6 @@ class Project < ActiveRecord::Base
     self.runners_token && ActiveSupport::SecurityUtils.variable_size_secure_compare(token, self.runners_token)
   end
 
-  # TODO (ayufan): For now we use runners_token (backward compatibility)
-  # In 8.4 every build will have its own individual token valid for time of build
-  def valid_build_token?(token)
-    self.builds_enabled? && self.runners_token && ActiveSupport::SecurityUtils.variable_size_secure_compare(token, self.runners_token)
-  end
-
   def build_coverage_enabled?
     build_coverage_regex.present?
   end
@@ -1297,6 +1291,22 @@ class Project < ActiveRecord::Base
 
   def reset_pushes_since_gc
     Gitlab::Redis.with { |redis| redis.del(pushes_since_gc_redis_key) }
+  end
+
+  def environments_for(ref, commit, with_tags: false)
+    environment_ids = deployments.group(:environment_id).
+      select(:environment_id)
+
+    environment_ids =
+      if with_tags
+        environment_ids.where('ref=? OR tag IS TRUE', ref)
+      else
+        environment_ids.where(ref: ref)
+      end
+
+    environments.where(id: environment_ids).select do |environment|
+      environment.includes_commit?(commit)
+    end
   end
 
   private

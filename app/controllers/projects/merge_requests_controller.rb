@@ -31,17 +31,7 @@ class Projects::MergeRequestsController < Projects::ApplicationController
   before_action :authorize_can_resolve_conflicts!, only: [:conflicts, :resolve_conflicts]
 
   def index
-    terms = params['issue_search']
     @merge_requests = merge_requests_collection
-
-    if terms.present?
-      if terms =~ /\A[#!](\d+)\z/
-        @merge_requests = @merge_requests.where(iid: $1)
-      else
-        @merge_requests = @merge_requests.full_search(terms)
-      end
-    end
-
     @merge_requests = @merge_requests.page(params[:page])
     @merge_requests = @merge_requests.preload(:target_project)
 
@@ -428,6 +418,10 @@ class Projects::MergeRequestsController < Projects::ApplicationController
   end
 
   def validates_merge_request
+    # If source project was removed and merge request for some reason
+    # wasn't close (Ex. mr from fork to origin)
+    return invalid_mr if !@merge_request.source_project && @merge_request.open?
+
     # Show git not found page
     # if there is no saved commits between source & target branch
     if @merge_request.commits.blank?

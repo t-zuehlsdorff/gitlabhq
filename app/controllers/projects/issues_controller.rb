@@ -23,18 +23,9 @@ class Projects::IssuesController < Projects::ApplicationController
   respond_to :html
 
   def index
-    terms = params['issue_search']
     @issues = issues_collection
-
-    if terms.present?
-      if terms =~ /\A#(\d+)\z/
-        @issues = @issues.where(iid: $1)
-      else
-        @issues = @issues.full_search(terms)
-      end
-    end
-
     @issues = @issues.page(params[:page])
+
     @labels = @project.labels.where(title: params[:label_name])
 
     respond_to do |format|

@@ -308,20 +308,23 @@ describe Project, models: true do
   end
 
   describe 'last_activity methods' do
-    let(:project) { create(:project) }
-    let(:last_event) { double(created_at: Time.now) }
+    let(:timestamp) { Time.now - 2.hours }
+    let(:project) { create(:project, created_at: timestamp, updated_at: timestamp) }
 
     describe 'last_activity' do
       it 'alias last_activity to last_event' do
-        allow(project).to receive(:last_event).and_return(last_event)
+        last_event = create(:event, project: project)
+
         expect(project.last_activity).to eq(last_event)
       end
     end
 
     describe 'last_activity_date' do
       it 'returns the creation date of the project\'s last event if present' do
-        create(:event, project: project)
-        expect(project.last_activity_at.to_i).to eq(last_event.created_at.to_i)
+        expect_any_instance_of(Event).to receive(:try_obtain_lease).and_return(true)
+        new_event = create(:event, project: project, created_at: Time.now)
+
+        expect(project.last_activity_at.to_i).to eq(new_event.created_at.to_i)
       end
 
       it 'returns the project\'s last update date if it has no events' do
@@ -1641,6 +1644,47 @@ describe Project, models: true do
       project.reset_pushes_since_gc
 
       expect(project.pushes_since_gc).to eq(0)
+    end
+  end
+
+  describe '#environments_for' do
+    let(:project) { create(:project) }
+    let(:environment) { create(:environment, project: project) }
+
+    context 'tagged deployment' do
+      before do
+        create(:deployment, environment: environment, ref: '1.0', tag: true, sha: project.commit.id)
+      end
+
+      it 'returns environment when with_tags is set' do
+        expect(project.environments_for('master', project.commit, with_tags: true)).to contain_exactly(environment)
+      end
+
+      it 'does not return environment when no with_tags is set' do
+        expect(project.environments_for('master', project.commit)).to be_empty
+      end
+
+      it 'does not return environment when commit is not part of deployment' do
+        expect(project.environments_for('master', project.commit('feature'))).to be_empty
+      end
+    end
+
+    context 'branch deployment' do
+      before do
+        create(:deployment, environment: environment, ref: 'master', sha: project.commit.id)
+      end
+
+      it 'returns environment when ref is set' do
+        expect(project.environments_for('master', project.commit)).to contain_exactly(environment)
+      end
+
+      it 'does not environment when ref is different' do
+        expect(project.environments_for('feature', project.commit)).to be_empty
+      end
+
+      it 'does not return environment when commit is not part of deployment' do
+        expect(project.environments_for('master', project.commit('feature'))).to be_empty
+      end
     end
   end
 
