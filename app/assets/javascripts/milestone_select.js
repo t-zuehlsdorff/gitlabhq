@@ -92,9 +92,10 @@
           },
           hidden: function() {
             $selectbox.hide();
+            // display:block overrides the hide-collapse rule
             return $value.css('display', '');
           },
-          clicked: function(selected) {
+          clicked: function(selected, $el, e) {
             var data, isIssueIndex, isMRIndex, page;
             page = $('body').data('page');
             isIssueIndex = page === 'projects:issues:index';
@@ -102,7 +103,11 @@
             if ($dropdown.hasClass('js-filter-bulk-update')) {
               return;
             }
-            if ($dropdown.hasClass('js-filter-submit') && (isIssueIndex || isMRIndex)) {
+            if (page === 'projects:boards:show') {
+              gl.issueBoards.BoardsStore.state.filters[$dropdown.data('field-name')] = selected.name;
+              gl.issueBoards.BoardsStore.updateFiltersUrl();
+              e.preventDefault();
+            } else if ($dropdown.hasClass('js-filter-submit') && (isIssueIndex || isMRIndex)) {
               if (selected.name != null) {
                 selectedMilestone = selected.name;
               } else {

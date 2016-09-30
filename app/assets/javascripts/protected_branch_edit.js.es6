@@ -31,13 +31,15 @@
       const $allowedToMergeInput = this.$wrap.find(`input[name="${this.$allowedToMergeDropdown.data('fieldName')}"]`);
       const $allowedToPushInput = this.$wrap.find(`input[name="${this.$allowedToPushDropdown.data('fieldName')}"]`);
 
+      // Do not update if one dropdown has not selected any option
+      if (!($allowedToMergeInput.length && $allowedToPushInput.length)) return; 
+
       $.ajax({
         type: 'POST',
         url: this.$wrap.data('url'),
         dataType: 'json',
         data: {
           _method: 'PATCH',
-          id: this.$wrap.data('banchId'),
           protected_branch: {
             merge_access_levels_attributes: [{
               id: this.$allowedToMergeDropdown.data('access-level-id'),

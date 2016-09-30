@@ -1,5 +1,5 @@
 class CommitStatus < ActiveRecord::Base
-  include Statuseable
+  include HasStatus
   include Importable
 
   self.table_name = 'ci_builds'
@@ -21,13 +21,20 @@ class CommitStatus < ActiveRecord::Base
 
     where(id: max_id.group(:name, :commit_id))
   end
+
   scope :retried, -> { where.not(id: latest) }
   scope :ordered, -> { order(:name) }
   scope :ignored, -> { where(allow_failure: true, status: [:failed, :canceled]) }
+  scope :latest_ci_stages, -> { latest.ordered.includes(project: :namespace) }
+  scope :retried_ci_stages, -> { retried.ordered.includes(project: :namespace) }
 
   state_machine :status do
     event :enqueue do
       transition [:created, :skipped] => :pending
+    end
+
+    event :process do
+      transition skipped: :created
     end
 
     event :run do
@@ -62,11 +69,9 @@ class CommitStatus < ActiveRecord::Base
       commit_status.update_attributes finished_at: Time.now
     end
 
-    # We use around_transition to process pipeline on next stages as soon as possible, before the `after_*` is executed
-    around_transition any => [:success, :failed, :canceled] do |commit_status, block|
-      block.call
-
+    after_transition any => [:success, :failed, :canceled] do |commit_status|
       commit_status.pipeline.try(:process!)
+      true
     end
 
     after_transition do |commit_status, transition|
@@ -88,6 +93,10 @@ class CommitStatus < ActiveRecord::Base
     pipeline.before_sha || Gitlab::Git::BLANK_SHA
   end
 
+  def group_name
+    name.gsub(/\d+[\s:\/\\]+\d+\s*/, '').strip
+  end
+
   def self.stages
     # We group by stage name, but order stages by theirs' index
     unscoped.from(all, :sg).group('stage').order('max(stage_idx)', 'stage').pluck('sg.stage')
@@ -106,14 +115,12 @@ class CommitStatus < ActiveRecord::Base
     allow_failure? && (failed? || canceled?)
   end
 
+  def playable?
+    false
+  end
+
   def duration
-    duration =
-      if started_at && finished_at
-        finished_at - started_at
-      elsif started_at
-        Time.now - started_at
-      end
-    duration
+    calculate_duration
   end
 
   def stuck?

@@ -1,6 +1,7 @@
 class Member < ActiveRecord::Base
   include Sortable
   include Importable
+  include Expirable
   include Gitlab::Access
 
   attr_accessor :raw_invite_token
@@ -27,17 +28,34 @@ class Member < ActiveRecord::Base
       allow_nil: true
     }
 
+  # This scope encapsulates (most of) the conditions a row in the member table
+  # must satisfy if it is a valid permission. Of particular note:
+  #
+  #   * Access requests must be excluded
+  #   * Blocked users must be excluded
+  #   * Invitations take effect immediately
+  #   * expires_at is not implemented. A background worker purges expired rows
+  scope :active, -> do
+    is_external_invite = arel_table[:user_id].eq(nil).and(arel_table[:invite_token].not_eq(nil))
+    user_is_active = User.arel_table[:state].eq(:active)
+
+    includes(:user).references(:users)
+      .where(is_external_invite.or(user_is_active))
+      .where(requested_at: nil)
+  end
+
   scope :invite, -> { where.not(invite_token: nil) }
   scope :non_invite, -> { where(invite_token: nil) }
   scope :request, -> { where.not(requested_at: nil) }
-  scope :has_access, -> { where('access_level > 0') }
 
-  scope :guests, -> { where(access_level: GUEST) }
-  scope :reporters, -> { where(access_level: REPORTER) }
-  scope :developers, -> { where(access_level: DEVELOPER) }
-  scope :masters,  -> { where(access_level: MASTER) }
-  scope :owners,  -> { where(access_level: OWNER) }
-  scope :owners_and_masters,  -> { where(access_level: [OWNER, MASTER]) }
+  scope :has_access, -> { active.where('access_level > 0') }
+
+  scope :guests, -> { active.where(access_level: GUEST) }
+  scope :reporters, -> { active.where(access_level: REPORTER) }
+  scope :developers, -> { active.where(access_level: DEVELOPER) }
+  scope :masters,  -> { active.where(access_level: MASTER) }
+  scope :owners,  -> { active.where(access_level: OWNER) }
+  scope :owners_and_masters,  -> { active.where(access_level: [OWNER, MASTER]) }
 
   before_validation :generate_invite_token, on: :create, if: -> (member) { member.invite_email.present? }
 
@@ -73,7 +91,7 @@ class Member < ActiveRecord::Base
       user
     end
 
-    def add_user(members, user_id, access_level, current_user = nil)
+    def add_user(members, user_id, access_level, current_user: nil, expires_at: nil)
       user = user_for_id(user_id)
 
       # `user` can be either a User object or an email to be invited
@@ -87,6 +105,7 @@ class Member < ActiveRecord::Base
       if can_update_member?(current_user, member) || project_creator?(member, access_level)
         member.created_by ||= current_user
         member.access_level = access_level
+        member.expires_at = expires_at
 
         member.save
       end

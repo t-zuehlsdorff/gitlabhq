@@ -493,7 +493,12 @@ describe Notify do
     end
 
     def invite_to_project(project:, email:, inviter:)
-      ProjectMember.add_user(project.project_members, 'toto@example.com', Gitlab::Access::DEVELOPER, inviter)
+      Member.add_user(
+        project.project_members,
+        'toto@example.com',
+        Gitlab::Access::DEVELOPER,
+        current_user: inviter
+      )
 
       project.project_members.invite.last
     end
@@ -740,7 +745,12 @@ describe Notify do
     end
 
     def invite_to_group(group:, email:, inviter:)
-      GroupMember.add_user(group.group_members, 'toto@example.com', Gitlab::Access::DEVELOPER, inviter)
+      Member.add_user(
+        group.group_members,
+        'toto@example.com',
+        Gitlab::Access::DEVELOPER,
+        current_user: inviter
+      )
 
       group.group_members.invite.last
     end
@@ -851,7 +861,7 @@ describe Notify do
     subject { Notify.repository_push_email(project.id, author_id: user.id, ref: 'refs/heads/master', action: :create) }
 
     it_behaves_like 'it should not have Gmail Actions links'
-    it_behaves_like "a user cannot unsubscribe through footer link"
+    it_behaves_like 'a user cannot unsubscribe through footer link'
     it_behaves_like 'an email with X-GitLab headers containing project details'
     it_behaves_like 'an email that contains a header with author username'
 
@@ -904,7 +914,7 @@ describe Notify do
     subject { Notify.repository_push_email(project.id, author_id: user.id, ref: 'refs/heads/master', action: :delete) }
 
     it_behaves_like 'it should not have Gmail Actions links'
-    it_behaves_like "a user cannot unsubscribe through footer link"
+    it_behaves_like 'a user cannot unsubscribe through footer link'
     it_behaves_like 'an email with X-GitLab headers containing project details'
     it_behaves_like 'an email that contains a header with author username'
 
@@ -926,7 +936,7 @@ describe Notify do
     subject { Notify.repository_push_email(project.id, author_id: user.id, ref: 'refs/tags/v1.0', action: :delete) }
 
     it_behaves_like 'it should not have Gmail Actions links'
-    it_behaves_like "a user cannot unsubscribe through footer link"
+    it_behaves_like 'a user cannot unsubscribe through footer link'
     it_behaves_like 'an email with X-GitLab headers containing project details'
     it_behaves_like 'an email that contains a header with author username'
 
@@ -954,7 +964,7 @@ describe Notify do
     subject { Notify.repository_push_email(project.id, author_id: user.id, ref: 'refs/heads/master', action: :push, compare: compare, reverse_compare: false, diff_refs: diff_refs, send_from_committer_email: send_from_committer_email) }
 
     it_behaves_like 'it should not have Gmail Actions links'
-    it_behaves_like "a user cannot unsubscribe through footer link"
+    it_behaves_like 'a user cannot unsubscribe through footer link'
     it_behaves_like 'an email with X-GitLab headers containing project details'
     it_behaves_like 'an email that contains a header with author username'
 
@@ -1056,7 +1066,7 @@ describe Notify do
     subject { Notify.repository_push_email(project.id, author_id: user.id, ref: 'refs/heads/master', action: :push, compare: compare, diff_refs: diff_refs) }
 
     it_behaves_like 'it should show Gmail Actions View Commit link'
-    it_behaves_like "a user cannot unsubscribe through footer link"
+    it_behaves_like 'a user cannot unsubscribe through footer link'
     it_behaves_like 'an email with X-GitLab headers containing project details'
     it_behaves_like 'an email that contains a header with author username'
 

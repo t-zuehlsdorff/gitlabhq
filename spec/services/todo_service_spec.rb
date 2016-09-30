@@ -145,6 +145,14 @@ describe TodoService, services: true do
       end
     end
 
+    describe '#destroy_issue' do
+      it 'refresh the todos count cache for the user' do
+        expect(john_doe).to receive(:update_todos_count_cache).and_call_original
+
+        service.destroy_issue(issue, john_doe)
+      end
+    end
+
     describe '#reassigned_issue' do
       it 'creates a pending todo for new assignee' do
         unassigned_issue.update_attribute(:assignee, john_doe)
@@ -194,12 +202,12 @@ describe TodoService, services: true do
       end
     end
 
-    describe '#mark_todos_as_done' do
-      it 'marks related todos for the user as done' do
-        first_todo = create(:todo, :assigned, user: john_doe, project: project, target: issue, author: author)
-        second_todo = create(:todo, :assigned, user: john_doe, project: project, target: issue, author: author)
+    shared_examples 'marking todos as done' do |meth|
+      let!(:first_todo) { create(:todo, :assigned, user: john_doe, project: project, target: issue, author: author) }
+      let!(:second_todo) { create(:todo, :assigned, user: john_doe, project: project, target: issue, author: author) }
 
-        service.mark_todos_as_done([first_todo, second_todo], john_doe)
+      it 'marks related todos for the user as done' do
+        service.send(meth, collection, john_doe)
 
         expect(first_todo.reload).to be_done
         expect(second_todo.reload).to be_done
@@ -207,17 +215,27 @@ describe TodoService, services: true do
 
       describe 'cached counts' do
         it 'updates when todos change' do
-          todo = create(:todo, :assigned, user: john_doe, project: project, target: issue, author: author)
-
           expect(john_doe.todos_done_count).to eq(0)
-          expect(john_doe.todos_pending_count).to eq(1)
+          expect(john_doe.todos_pending_count).to eq(2)
           expect(john_doe).to receive(:update_todos_count_cache).and_call_original
 
-          service.mark_todos_as_done([todo], john_doe)
+          service.send(meth, collection, john_doe)
 
-          expect(john_doe.todos_done_count).to eq(1)
+          expect(john_doe.todos_done_count).to eq(2)
           expect(john_doe.todos_pending_count).to eq(0)
         end
+      end
+    end
+
+    describe '#mark_todos_as_done' do
+      it_behaves_like 'marking todos as done', :mark_todos_as_done do
+        let(:collection) { [first_todo, second_todo] }
+      end
+    end
+
+    describe '#mark_todos_as_done_by_ids' do
+      it_behaves_like 'marking todos as done', :mark_todos_as_done_by_ids do
+        let(:collection) { [first_todo, second_todo].map(&:id) }
       end
     end
 
@@ -288,6 +306,18 @@ describe TodoService, services: true do
         service.mark_todo(unassigned_issue, author)
 
         should_create_todo(user: author, target: unassigned_issue, action: Todo::MARKED)
+      end
+    end
+
+    describe '#todo_exists?' do
+      it 'returns false when no todo exist for the given issuable' do
+        expect(service.todo_exist?(unassigned_issue, author)).to be_falsy
+      end
+
+      it 'returns true when a todo exist for the given issuable' do
+        service.mark_todo(unassigned_issue, author)
+
+        expect(service.todo_exist?(unassigned_issue, author)).to be_truthy
       end
     end
   end
@@ -369,6 +399,14 @@ describe TodoService, services: true do
 
         expect(first_todo.reload).to be_done
         expect(second_todo.reload).to be_done
+      end
+    end
+
+    describe '#destroy_merge_request' do
+      it 'refresh the todos count cache for the user' do
+        expect(john_doe).to receive(:update_todos_count_cache).and_call_original
+
+        service.destroy_merge_request(mr_assigned, john_doe)
       end
     end
 
@@ -474,6 +512,7 @@ describe TodoService, services: true do
 
   describe '#mark_todos_as_done' do
     let(:issue) { create(:issue, project: project, author: author, assignee: john_doe) }
+    let(:another_issue) { create(:issue, project: project, author: author, assignee: john_doe) }
 
     it 'marks a relation of todos as done' do
       create(:todo, :mentioned, user: john_doe, target: issue, project: project)
@@ -494,6 +533,26 @@ describe TodoService, services: true do
       todo = create(:todo, :mentioned, user: john_doe, target: issue, project: project)
 
       expect(TodoService.new.mark_todos_as_done([todo], john_doe)).to eq(1)
+    end
+
+    context 'when some of the todos are done already' do
+      before do
+        create(:todo, :mentioned, user: john_doe, target: issue, project: project)
+        create(:todo, :mentioned, user: john_doe, target: another_issue, project: project)
+      end
+
+      it 'returns the number of those still pending' do
+        TodoService.new.mark_pending_todos_as_done(issue, john_doe)
+
+        expect(TodoService.new.mark_todos_as_done(Todo.all, john_doe)).to eq(1)
+      end
+
+      it 'returns 0 if all are done' do
+        TodoService.new.mark_pending_todos_as_done(issue, john_doe)
+        TodoService.new.mark_pending_todos_as_done(another_issue, john_doe)
+
+        expect(TodoService.new.mark_todos_as_done(Todo.all, john_doe)).to eq(0)
+      end
     end
 
     it 'caches the number of todos of a user', :caching do

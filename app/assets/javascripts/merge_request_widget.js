@@ -3,6 +3,12 @@
 
   this.MergeRequestWidget = (function() {
     function MergeRequestWidget(opts) {
+      // Initialize MergeRequestWidget behavior
+      //
+      //   check_enable           - Boolean, whether to check automerge status
+      //   merge_check_url - String, URL to use to check automerge status
+      //   ci_status_url        - String, URL to use to check CI status
+      //
       this.opts = opts;
       $('#modal_merge_info').modal({
         show: false
@@ -28,7 +34,7 @@
 
     MergeRequestWidget.prototype.addEventListeners = function() {
       var allowedPages;
-      allowedPages = ['show', 'commits', 'builds', 'changes'];
+      allowedPages = ['show', 'commits', 'builds', 'pipelines', 'changes'];
       return $(document).on('page:change.merge_request', (function(_this) {
         return function() {
           var page;
@@ -53,7 +59,7 @@
           return function(data) {
             var callback, urlSuffix;
             if (data.state === "merged") {
-              urlSuffix = deleteSourceBranch ? '?delete_source=true' : '';
+              urlSuffix = deleteSourceBranch ? '?deleted_source_branch=true' : '';
               return window.location.href = window.location.pathname + urlSuffix;
             } else if (data.merge_error) {
               return $('.mr-widget-body').html("<h4>" + data.merge_error + "</h4>");
@@ -118,6 +124,8 @@
             if (data.coverage) {
               _this.showCICoverage(data.coverage);
             }
+            // The first check should only update the UI, a notification
+            // should only be displayed on status changes
             if (showNotification && !_this.firstCICheck) {
               status = _this.ciLabelForStatus(data.status);
               if (status === "preparing") {

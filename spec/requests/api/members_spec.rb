@@ -30,18 +30,27 @@ describe API::Members, api: true  do
         let(:route) { get api("/#{source_type.pluralize}/#{source.id}/members", stranger) }
       end
 
-      context 'when authenticated as a non-member' do
-        %i[access_requester stranger].each do |type|
-          context "as a #{type}" do
-            it 'returns 200' do
-              user = public_send(type)
-              get api("/#{source_type.pluralize}/#{source.id}/members", user)
+      %i[master developer access_requester stranger].each do |type|
+        context "when authenticated as a #{type}" do
+          it 'returns 200' do
+            user = public_send(type)
+            get api("/#{source_type.pluralize}/#{source.id}/members", user)
 
-              expect(response).to have_http_status(200)
-              expect(json_response.size).to eq(2)
-            end
+            expect(response).to have_http_status(200)
+            expect(json_response.size).to eq(2)
+            expect(json_response.map { |u| u['id'] }).to match_array [master.id, developer.id]
           end
         end
+      end
+
+      it 'does not return invitees' do
+        create(:"#{source_type}_member", invite_token: '123', invite_email: 'test@abc.com', source: source, user: nil)
+
+        get api("/#{source_type.pluralize}/#{source.id}/members", developer)
+
+        expect(response).to have_http_status(200)
+        expect(json_response.size).to eq(2)
+        expect(json_response.map { |u| u['id'] }).to match_array [master.id, developer.id]
       end
 
       it 'finds members with query string' do
@@ -122,12 +131,13 @@ describe API::Members, api: true  do
         it 'creates a new member' do
           expect do
             post api("/#{source_type.pluralize}/#{source.id}/members", master),
-                 user_id: stranger.id, access_level: Member::DEVELOPER
+                 user_id: stranger.id, access_level: Member::DEVELOPER, expires_at: '2016-08-05'
 
             expect(response).to have_http_status(201)
           end.to change { source.members.count }.by(1)
           expect(json_response['id']).to eq(stranger.id)
           expect(json_response['access_level']).to eq(Member::DEVELOPER)
+          expect(json_response['expires_at']).to eq('2016-08-05')
         end
       end
 
@@ -183,11 +193,12 @@ describe API::Members, api: true  do
       context 'when authenticated as a master/owner' do
         it 'updates the member' do
           put api("/#{source_type.pluralize}/#{source.id}/members/#{developer.id}", master),
-              access_level: Member::MASTER
+              access_level: Member::MASTER, expires_at: '2016-08-05'
 
           expect(response).to have_http_status(200)
           expect(json_response['id']).to eq(developer.id)
           expect(json_response['access_level']).to eq(Member::MASTER)
+          expect(json_response['expires_at']).to eq('2016-08-05')
         end
       end
 

@@ -84,7 +84,9 @@ Parameters:
     "star_count": 0,
     "runners_token": "b8547b1dc37721d05889db52fa2f02",
     "public_builds": true,
-    "shared_with_groups": []
+    "shared_with_groups": [],
+    "only_allow_merge_if_build_succeeds": false,
+    "request_access_enabled": false
   },
   {
     "id": 6,
@@ -144,7 +146,9 @@ Parameters:
     "star_count": 0,
     "runners_token": "b8547b1dc37721d05889db52fa2f02",
     "public_builds": true,
-    "shared_with_groups": []
+    "shared_with_groups": [],
+    "only_allow_merge_if_build_succeeds": false,
+    "request_access_enabled": false
   }
 ]
 ```
@@ -280,7 +284,9 @@ Parameters:
       "group_name": "Gitlab Org",
       "group_access_level": 10
     }
-  ]
+  ],
+  "only_allow_merge_if_build_succeeds": false,
+  "request_access_enabled": false
 }
 ```
 
@@ -448,6 +454,9 @@ Parameters:
 - `visibility_level` (optional)
 - `import_url` (optional)
 - `public_builds` (optional)
+- `only_allow_merge_if_build_succeeds` (optional)
+- `lfs_enabled` (optional)
+- `request_access_enabled` (optional) - Allow users to request member access.
 
 ### Create project for user
 
@@ -473,6 +482,9 @@ Parameters:
 - `visibility_level` (optional)
 - `import_url` (optional)
 - `public_builds` (optional)
+- `only_allow_merge_if_build_succeeds` (optional)
+- `lfs_enabled` (optional)
+- `request_access_enabled` (optional) - Allow users to request member access.
 
 ### Edit project
 
@@ -484,7 +496,7 @@ PUT /projects/:id
 
 Parameters:
 
-- `id` (required) - The ID of a project
+- `id` (required) - The ID or NAMESPACE/PROJECT_NAME of a project
 - `name` (optional) - project name
 - `path` (optional) - repository name for project
 - `description` (optional) - short project description
@@ -499,13 +511,16 @@ Parameters:
 - `public` (optional) - if `true` same as setting visibility_level = 20
 - `visibility_level` (optional)
 - `public_builds` (optional)
+- `only_allow_merge_if_build_succeeds` (optional)
+- `lfs_enabled` (optional)
+- `request_access_enabled` (optional) - Allow users to request member access.
 
 On success, method returns 200 with the updated project. If parameters are
 invalid, 400 is returned.
 
 ### Fork project
 
-Forks a project into the user namespace of the authenticated user.
+Forks a project into the user namespace of the authenticated user or the one provided.
 
 ```
 POST /projects/fork/:id
@@ -513,7 +528,8 @@ POST /projects/fork/:id
 
 Parameters:
 
-- `id` (required) - The ID of the project to be forked
+- `id` (required) - The ID or NAMESPACE/PROJECT_NAME of the project to be forked
+- `namespace` (optional) - The ID or path of the namespace that the project will be forked to
 
 ### Star a project
 
@@ -526,7 +542,7 @@ POST /projects/:id/star
 
 | Attribute | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `id`      | integer | yes | The ID of the project |
+| `id`      | integer/string | yes | The ID of the project or NAMESPACE/PROJECT_NAME |
 
 ```bash
 curl --request POST --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" "https://gitlab.example.com/api/v3/projects/5/star"
@@ -577,7 +593,9 @@ Example response:
   "forks_count": 0,
   "star_count": 1,
   "public_builds": true,
-  "shared_with_groups": []
+  "shared_with_groups": [],
+  "only_allow_merge_if_build_succeeds": false,
+  "request_access_enabled": false
 }
 ```
 
@@ -592,7 +610,7 @@ DELETE /projects/:id/star
 
 | Attribute | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `id`      | integer | yes | The ID of the project |
+| `id`      | integer/string | yes | The ID of the project or NAMESPACE/PROJECT_NAME |
 
 ```bash
 curl --request DELETE --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" "https://gitlab.example.com/api/v3/projects/5/star"
@@ -643,7 +661,9 @@ Example response:
   "forks_count": 0,
   "star_count": 0,
   "public_builds": true,
-  "shared_with_groups": []
+  "shared_with_groups": [],
+  "only_allow_merge_if_build_succeeds": false,
+  "request_access_enabled": false
 }
 ```
 
@@ -662,7 +682,7 @@ POST /projects/:id/archive
 
 | Attribute | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `id`      | integer | yes | The ID of the project |
+| `id`      | integer/string | yes | The ID of the project or NAMESPACE/PROJECT_NAME |
 
 ```bash
 curl --request POST --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" "https://gitlab.example.com/api/v3/projects/archive"
@@ -729,7 +749,9 @@ Example response:
   "star_count": 0,
   "runners_token": "b8bc4a7a29eb76ea83cf79e4908c2b",
   "public_builds": true,
-  "shared_with_groups": []
+  "shared_with_groups": [],
+  "only_allow_merge_if_build_succeeds": false,
+  "request_access_enabled": false
 }
 ```
 
@@ -748,7 +770,7 @@ POST /projects/:id/unarchive
 
 | Attribute | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `id`      | integer | yes | The ID of the project |
+| `id`      | integer/string | yes | The ID of the project or NAMESPACE/PROJECT_NAME |
 
 ```bash
 curl --request POST --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" "https://gitlab.example.com/api/v3/projects/unarchive"
@@ -815,7 +837,9 @@ Example response:
   "star_count": 0,
   "runners_token": "b8bc4a7a29eb76ea83cf79e4908c2b",
   "public_builds": true,
-  "shared_with_groups": []
+  "shared_with_groups": [],
+  "only_allow_merge_if_build_succeeds": false,
+  "request_access_enabled": false
 }
 ```
 
@@ -829,7 +853,7 @@ DELETE /projects/:id
 
 Parameters:
 
-- `id` (required) - The ID of a project
+- `id` (required) - The ID or NAMESPACE/PROJECT_NAME of the project to be forked
 
 ## Uploads
 
@@ -843,7 +867,7 @@ POST /projects/:id/uploads
 
 Parameters:
 
-- `id` (required) - The ID of the project
+- `id` (required) - The ID or NAMESPACE/PROJECT_NAME of the project to be forked
 - `file` (required) - The file to be uploaded
 
 ```json
@@ -872,9 +896,10 @@ POST /projects/:id/share
 
 Parameters:
 
-- `id` (required) - The ID of a project
+- `id` (required) - The ID or NAMESPACE/PROJECT_NAME of the project to be forked
 - `group_id` (required) - The ID of a group
 - `group_access` (required) - Level of permissions for sharing
+- `expires_at` - Share expiration date in ISO 8601 format: 2016-09-26
 
 ## Hooks
 
@@ -914,7 +939,11 @@ Parameters:
   "push_events": true,
   "issues_events": true,
   "merge_requests_events": true,
+  "tag_push_events": true,
   "note_events": true,
+  "build_events": true,
+  "pipeline_events": true,
+  "wiki_page_events": true,
   "enable_ssl_verification": true,
   "created_at": "2012-10-12T17:04:47Z"
 }
@@ -937,6 +966,9 @@ Parameters:
 - `merge_requests_events` - Trigger hook on merge_requests events
 - `tag_push_events` - Trigger hook on push_tag events
 - `note_events` - Trigger hook on note events
+- `build_events` - Trigger hook on build events
+- `pipeline_events` - Trigger hook on pipeline events
+- `wiki_page_events` - Trigger hook on wiki page events
 - `enable_ssl_verification` - Do SSL verification when triggering the hook
 
 ### Edit project hook
@@ -957,6 +989,9 @@ Parameters:
 - `merge_requests_events` - Trigger hook on merge_requests events
 - `tag_push_events` - Trigger hook on push_tag events
 - `note_events` - Trigger hook on note events
+- `build_events` - Trigger hook on build events
+- `pipeline_events` - Trigger hook on pipeline events
+- `wiki_page_events` - Trigger hook on wiki page events
 - `enable_ssl_verification` - Do SSL verification when triggering the hook
 
 ### Delete project hook
@@ -978,6 +1013,8 @@ is available before it is returned in the JSON response or an empty response is 
 
 ## Branches
 
+For more information please consult the [Branches](branches.md) documentation.
+
 ### List branches
 
 Lists all branches of a project.
@@ -996,56 +1033,46 @@ Parameters:
     "name": "async",
     "commit": {
       "id": "a2b702edecdf41f07b42653eb1abe30ce98b9fca",
-      "parents": [
-        {
-          "id": "3f94fc7c85061973edc9906ae170cc269b07ca55"
-        }
+      "parent_ids": [
+        "3f94fc7c85061973edc9906ae170cc269b07ca55"
       ],
-      "tree": "c68537c6534a02cc2b176ca1549f4ffa190b58ee",
       "message": "give Caolan credit where it's due (up top)",
-      "author": {
-        "name": "Jeremy Ashkenas",
-        "email": "jashkenas@example.com"
-      },
-      "committer": {
-        "name": "Jeremy Ashkenas",
-        "email": "jashkenas@example.com"
-      },
+      "author_name": "Jeremy Ashkenas",
+      "author_email": "jashkenas@example.com",
       "authored_date": "2010-12-08T21:28:50+00:00",
+      "committer_name": "Jeremy Ashkenas",
+      "committer_email": "jashkenas@example.com",
       "committed_date": "2010-12-08T21:28:50+00:00"
     },
-    "protected": false
+    "protected": false,
+    "developers_can_push": false,
+    "developers_can_merge": false
   },
   {
     "name": "gh-pages",
     "commit": {
       "id": "101c10a60019fe870d21868835f65c25d64968fc",
-      "parents": [
-        {
-          "id": "9c15d2e26945a665131af5d7b6d30a06ba338aaa"
-        }
+      "parent_ids": [
+          "9c15d2e26945a665131af5d7b6d30a06ba338aaa"
       ],
-      "tree": "fb5cc9d45da3014b17a876ad539976a0fb9b352a",
       "message": "Underscore.js 1.5.2",
-      "author": {
-        "name": "Jeremy Ashkenas",
-        "email": "jashkenas@example.com"
-      },
-      "committer": {
-        "name": "Jeremy Ashkenas",
-        "email": "jashkenas@example.com"
-      },
+      "author_name": "Jeremy Ashkenas",
+      "author_email": "jashkenas@example.com",
       "authored_date": "2013-09-07T12:58:21+00:00",
+      "committer_name": "Jeremy Ashkenas",
+      "committer_email": "jashkenas@example.com",
       "committed_date": "2013-09-07T12:58:21+00:00"
     },
-    "protected": false
+    "protected": false,
+    "developers_can_push": false,
+    "developers_can_merge": false
   }
 ]
 ```
 
-### List single branch
+### Single branch
 
-Lists a specific branch of a project.
+A specific branch of a project.
 
 ```
 GET /projects/:id/repository/branches/:branch
@@ -1055,6 +1082,8 @@ Parameters:
 
 - `id` (required) - The ID or NAMESPACE/PROJECT_NAME of a project
 - `branch` (required) - The name of the branch.
+- `developers_can_push` - Flag if developers can push to the branch.
+- `developers_can_merge` - Flag if developers can merge to the branch.
 
 ### Protect single branch
 
@@ -1094,7 +1123,7 @@ POST /projects/:id/fork/:forked_from_id
 
 Parameters:
 
-- `id` (required) - The ID of the project
+- `id` (required) - The ID or NAMESPACE/PROJECT_NAME of the project to be forked
 - `forked_from_id:` (required) - The ID of the project that was forked from
 
 ### Delete an existing forked from relationship
@@ -1105,7 +1134,7 @@ DELETE /projects/:id/fork
 
 Parameter:
 
-- `id` (required) - The ID of the project
+- `id` (required) - The ID or NAMESPACE/PROJECT_NAME of the project to be forked
 
 ## Search for projects by name
 

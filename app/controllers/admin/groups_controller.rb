@@ -42,7 +42,7 @@ class Admin::GroupsController < Admin::ApplicationController
   end
 
   def members_update
-    @group.add_users(params[:user_ids].split(','), params[:access_level], current_user)
+    @group.add_users(params[:user_ids].split(','), params[:access_level], current_user: current_user)
 
     redirect_to [:admin, @group], notice: 'Users were successfully added.'
   end
@@ -60,6 +60,14 @@ class Admin::GroupsController < Admin::ApplicationController
   end
 
   def group_params
-    params.require(:group).permit(:name, :description, :path, :avatar, :visibility_level, :request_access_enabled)
+    params.require(:group).permit(
+      :avatar,
+      :description,
+      :lfs_enabled,
+      :name,
+      :path,
+      :request_access_enabled,
+      :visibility_level
+    )
   end
 end

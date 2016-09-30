@@ -12,13 +12,30 @@ module API
       nil
     end
 
+    def private_token
+      params[PRIVATE_TOKEN_PARAM] || env[PRIVATE_TOKEN_HEADER]
+    end
+
+    def warden
+      env['warden']
+    end
+
+    # Check the Rails session for valid authentication details
+    def find_user_from_warden
+      warden ? warden.authenticate : nil
+    end
+
     def find_user_by_private_token
-      token_string = (params[PRIVATE_TOKEN_PARAM] || env[PRIVATE_TOKEN_HEADER]).to_s
-      User.find_by_authentication_token(token_string) || User.find_by_personal_access_token(token_string)
+      token = private_token
+      return nil unless token.present?
+
+      User.find_by_authentication_token(token) || User.find_by_personal_access_token(token)
     end
 
     def current_user
-      @current_user ||= (find_user_by_private_token || doorkeeper_guard)
+      @current_user ||= find_user_by_private_token
+      @current_user ||= doorkeeper_guard
+      @current_user ||= find_user_from_warden
 
       unless @current_user && Gitlab::UserAccess.new(@current_user).allowed?
         return nil
@@ -129,7 +146,7 @@ module API
       forbidden! unless current_user.is_admin?
     end
 
-    def authorize!(action, subject)
+    def authorize!(action, subject = nil)
       forbidden! unless can?(current_user, action, subject)
     end
 
@@ -148,7 +165,7 @@ module API
     end
 
     def can?(object, action, subject)
-      abilities.allowed?(object, action, subject)
+      Ability.allowed?(object, action, subject)
     end
 
     # Checks the occurrences of required attributes, each attribute must be present in the params hash
@@ -269,6 +286,10 @@ module API
       render_api_error!('304 Not Modified', 304)
     end
 
+    def no_content!
+      render_api_error!('204 No Content', 204)
+    end
+
     def render_validation_error!(model)
       if model.errors.any?
         render_api_error!(model.errors.messages || '400 Bad Request', 400)
@@ -277,6 +298,24 @@ module API
 
     def render_api_error!(message, status)
       error!({ 'message' => message }, status)
+    end
+
+    def handle_api_exception(exception)
+      if sentry_enabled? && report_exception?(exception)
+        define_params_for_grape_middleware
+        sentry_context
+        Raven.capture_exception(exception)
+      end
+
+      # lifted from https://github.com/rails/rails/blob/master/actionpack/lib/action_dispatch/middleware/debug_exceptions.rb#L60
+      trace = exception.backtrace
+
+      message = "\n#{exception.class} (#{exception.message}):\n"
+      message << exception.annoted_source_code.to_s if exception.respond_to?(:annoted_source_code)
+      message << "  " << trace.join("\n  ")
+
+      API.logger.add Logger::FATAL, message
+      rack_response({ 'message' => '500 Internal Server Error' }.to_json, 500)
     end
 
     # Projects helpers
@@ -390,14 +429,6 @@ module API
       links.join(', ')
     end
 
-    def abilities
-      @abilities ||= begin
-                       abilities = Six.new
-                       abilities << Ability
-                       abilities
-                     end
-    end
-
     def secret_token
       File.read(Gitlab.config.gitlab_shell.secret_file).chomp
     end
@@ -418,6 +449,20 @@ module API
       else
         Entities::Issue
       end
+    end
+
+    # The Grape Error Middleware only has access to env but no params. We workaround this by
+    # defining a method that returns the right value.
+    def define_params_for_grape_middleware
+      self.define_singleton_method(:params) { Rack::Request.new(env).params.symbolize_keys }
+    end
+
+    # We could get a Grape or a standard Ruby exception. We should only report anything that
+    # is clearly an error.
+    def report_exception?(exception)
+      return true unless exception.respond_to?(:status)
+
+      exception.status == 500
     end
   end
 end

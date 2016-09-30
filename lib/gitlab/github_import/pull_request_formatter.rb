@@ -20,7 +20,7 @@ module Gitlab
           author_id: author_id,
           assignee_id: assignee_id,
           created_at: raw_data.created_at,
-          updated_at: updated_at
+          updated_at: raw_data.updated_at
         }
       end
 
@@ -56,6 +56,10 @@ module Gitlab
         end
       end
 
+      def url
+        raw_data.url
+      end
+
       private
 
       def assigned?
@@ -64,7 +68,7 @@ module Gitlab
 
       def assignee_id
         if assigned?
-          gl_user_id(raw_data.assignee.id)
+          gitlab_user_id(raw_data.assignee.id)
         end
       end
 
@@ -73,7 +77,7 @@ module Gitlab
       end
 
       def author_id
-        gl_user_id(raw_data.user.id) || project.creator_id
+        gitlab_author_id || project.creator_id
       end
 
       def body
@@ -81,7 +85,11 @@ module Gitlab
       end
 
       def description
-        formatter.author_line(author) + body
+        if gitlab_author_id
+          body
+        else
+          formatter.author_line(author) + body
+        end
       end
 
       def milestone
@@ -98,15 +106,6 @@ module Gitlab
                    else
                      'opened'
                    end
-      end
-
-      def updated_at
-        case state
-        when 'merged' then raw_data.merged_at
-        when 'closed' then raw_data.closed_at
-        else
-          raw_data.updated_at
-        end
       end
     end
   end

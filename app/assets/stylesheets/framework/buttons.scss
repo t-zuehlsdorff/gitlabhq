@@ -200,9 +200,15 @@
 
   svg {
     height: 15px;
-    width: auto;
+    width: 15px;
     position: relative;
     top: 2px;
+  }
+
+  svg, .fa {
+    &:not(:last-child) {
+      margin-right: 3px;
+    }
   }
 }
 
@@ -328,5 +334,11 @@
     -moz-box-shadow: inset 0 0 0 white;
     -webkit-box-shadow: inset 0 0 0 white;
     box-shadow: inset 0 0 0 white;
+  }
+}
+
+@media (max-width: $screen-xs-max) {
+  .btn-wide-on-xs {
+    width: 100%;
   }
 }

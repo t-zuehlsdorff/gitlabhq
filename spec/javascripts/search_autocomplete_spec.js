@@ -1,19 +1,9 @@
 
 /*= require gl_dropdown */
-
-
 /*= require search_autocomplete */
-
-
 /*= require jquery */
-
-
 /*= require lib/utils/common_utils */
-
-
 /*= require lib/utils/type_utility */
-
-
 /*= require fuzzaldrin-plus */
 
 (function() {
@@ -43,6 +33,8 @@
 
   groupName = 'Gitlab Org';
 
+  // Add required attributes to body before starting the test.
+  // section would be dashboard|group|project
   addBodyAttributes = function(section) {
     var $body;
     if (section == null) {
@@ -64,6 +56,7 @@
     }
   };
 
+  // Mock `gl` object in window for dashboard specific page. App code will need it.
   mockDashboardOptions = function() {
     window.gl || (window.gl = {});
     return window.gl.dashboardOptions = {
@@ -72,6 +65,7 @@
     };
   };
 
+  // Mock `gl` object in window for project specific page. App code will need it.
   mockProjectOptions = function() {
     window.gl || (window.gl = {});
     return window.gl.projectOptions = {
@@ -105,13 +99,13 @@
     a3 = "a[href='" + mrsAssignedToMeLink + "']";
     a4 = "a[href='" + mrsIHaveCreatedLink + "']";
     expect(list.find(a1).length).toBe(1);
-    expect(list.find(a1).text()).toBe(' Issues assigned to me ');
+    expect(list.find(a1).text()).toBe('Issues assigned to me');
     expect(list.find(a2).length).toBe(1);
-    expect(list.find(a2).text()).toBe(" Issues I've created ");
+    expect(list.find(a2).text()).toBe("Issues I've created");
     expect(list.find(a3).length).toBe(1);
-    expect(list.find(a3).text()).toBe(' Merge requests assigned to me ');
+    expect(list.find(a3).text()).toBe('Merge requests assigned to me');
     expect(list.find(a4).length).toBe(1);
-    return expect(list.find(a4).text()).toBe(" Merge requests I've created ");
+    return expect(list.find(a4).text()).toBe("Merge requests I've created");
   };
 
   describe('Search autocomplete dropdown', function() {

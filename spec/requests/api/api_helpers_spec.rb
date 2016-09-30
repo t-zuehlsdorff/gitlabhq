@@ -3,6 +3,7 @@ require 'spec_helper'
 describe API::Helpers, api: true do
   include API::Helpers
   include ApiHelpers
+  include SentryHelper
 
   let(:user) { create(:user) }
   let(:admin) { create(:admin) }
@@ -35,11 +36,36 @@ describe API::Helpers, api: true do
     params.delete(API::Helpers::SUDO_PARAM)
   end
 
+  def warden_authenticate_returns(value)
+    warden = double("warden", authenticate: value)
+    env['warden'] = warden
+  end
+
+  def doorkeeper_guard_returns(value)
+    allow_any_instance_of(self.class).to receive(:doorkeeper_guard){ value }
+  end
+
   def error!(message, status)
     raise Exception
   end
 
   describe ".current_user" do
+    subject { current_user }
+
+    describe "when authenticating via Warden" do
+      before { doorkeeper_guard_returns false }
+
+      context "fails" do
+        it { is_expected.to be_nil }
+      end
+
+      context "succeeds" do
+        before { warden_authenticate_returns user }
+
+        it { is_expected.to eq(user) }
+      end
+    end
+
     describe "when authenticating using a user's private token" do
       it "returns nil for an invalid token" do
         env[API::Helpers::PRIVATE_TOKEN_HEADER] = 'invalid token'
@@ -232,6 +258,32 @@ describe API::Helpers, api: true do
       expect(to_boolean('yeah')).to be_nil
       expect(to_boolean('')).to be_nil
       expect(to_boolean(nil)).to be_nil
+    end
+  end
+
+  describe '.handle_api_exception' do
+    before do
+      allow_any_instance_of(self.class).to receive(:sentry_enabled?).and_return(true)
+      allow_any_instance_of(self.class).to receive(:rack_response)
+    end
+
+    it 'does not report a MethodNotAllowed exception to Sentry' do
+      exception = Grape::Exceptions::MethodNotAllowed.new({ 'X-GitLab-Test' => '1' })
+      allow(exception).to receive(:backtrace).and_return(caller)
+
+      expect(Raven).not_to receive(:capture_exception).with(exception)
+
+      handle_api_exception(exception)
+    end
+
+    it 'does report RuntimeError to Sentry' do
+      exception = RuntimeError.new('test error')
+      allow(exception).to receive(:backtrace).and_return(caller)
+
+      expect_any_instance_of(self.class).to receive(:sentry_context)
+      expect(Raven).to receive(:capture_exception).with(exception)
+
+      handle_api_exception(exception)
     end
   end
 end

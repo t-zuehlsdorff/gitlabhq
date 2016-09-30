@@ -5,7 +5,7 @@ Introduced in GitLab 8.8.
 
 ## Pipelines
 
-A pipeline is a group of [builds] that get executed in [stages] (batches). All
+A pipeline is a group of [builds] that get executed in [stages] \(batches). All
 of the builds in a stage are executed in parallel (if there are enough
 concurrent [runners]), and if they all succeed, the pipeline moves on to the
 next stage. If one of the builds fails, the next stage is not (usually)
@@ -66,6 +66,8 @@ use following Markdown code to embed the est coverage report into `README.md`:
 ```markdown
 ![coverage](http://gitlab.com/gitlab-org/gitlab-ce/badges/master/coverage.svg?job=coverage)
 ```
+
+The latest successful pipeline will be used to read the test coverage value.
 
 [builds]: #builds
 [jobs]: yaml/README.md#jobs

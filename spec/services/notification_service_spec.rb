@@ -9,6 +9,28 @@ describe NotificationService, services: true do
     end
   end
 
+  shared_examples 'notifications for new mentions' do
+    def send_notifications(*new_mentions)
+      reset_delivered_emails!
+      notification.send(notification_method, mentionable, new_mentions, @u_disabled)
+    end
+
+    it 'sends no emails when no new mentions are present' do
+      send_notifications
+      expect(ActionMailer::Base.deliveries).to be_empty
+    end
+
+    it 'emails new mentions with a watch level higher than participant' do
+      send_notifications(@u_watcher, @u_participant_mentioned, @u_custom_global)
+      should_only_email(@u_watcher, @u_participant_mentioned, @u_custom_global)
+    end
+
+    it 'does not email new mentions with a watch level equal to or less than participant' do
+      send_notifications(@u_participating, @u_mentioned)
+      expect(ActionMailer::Base.deliveries).to be_empty
+    end
+  end
+
   describe 'Keys' do
     describe '#new_key' do
       let!(:key) { create(:personal_key) }
@@ -357,6 +379,7 @@ describe NotificationService, services: true do
       it "emails subscribers of the issue's labels" do
         subscriber = create(:user)
         label = create(:label, issues: [issue])
+        issue.reload
         label.toggle_subscription(subscriber)
         notification.new_issue(issue, @u_disabled)
 
@@ -377,6 +400,7 @@ describe NotificationService, services: true do
           project.team << [guest, :guest]
 
           label = create(:label, issues: [confidential_issue])
+          confidential_issue.reload
           label.toggle_subscription(non_member)
           label.toggle_subscription(author)
           label.toggle_subscription(assignee)
@@ -397,6 +421,13 @@ describe NotificationService, services: true do
           should_email(admin)
         end
       end
+    end
+
+    describe '#new_mentions_in_issue' do
+      let(:notification_method) { :new_mentions_in_issue }
+      let(:mentionable) { issue }
+
+      include_examples 'notifications for new mentions'
     end
 
     describe '#reassigned_issue' do
@@ -700,6 +731,8 @@ describe NotificationService, services: true do
     before do
       build_team(merge_request.target_project)
       add_users_with_subscription(merge_request.target_project, merge_request)
+      update_custom_notification(:new_merge_request, @u_guest_custom, project)
+      update_custom_notification(:new_merge_request, @u_custom_global)
       ActionMailer::Base.deliveries.clear
     end
 
@@ -761,6 +794,13 @@ describe NotificationService, services: true do
           it { should_not_email(@u_lazy_participant) }
         end
       end
+    end
+
+    describe '#new_mentions_in_merge_request' do
+      let(:notification_method) { :new_mentions_in_merge_request }
+      let(:mentionable) { merge_request }
+
+      include_examples 'notifications for new mentions'
     end
 
     describe '#reassigned_merge_request' do
@@ -1004,6 +1044,52 @@ describe NotificationService, services: true do
         end
       end
     end
+
+    describe "#resolve_all_discussions" do
+      it do
+        notification.resolve_all_discussions(merge_request, @u_disabled)
+
+        should_email(merge_request.assignee)
+        should_email(@u_watcher)
+        should_email(@u_participant_mentioned)
+        should_email(@subscriber)
+        should_email(@watcher_and_subscriber)
+        should_email(@u_guest_watcher)
+        should_not_email(@unsubscriber)
+        should_not_email(@u_participating)
+        should_not_email(@u_disabled)
+        should_not_email(@u_lazy_participant)
+      end
+
+      context 'participating' do
+        context 'by assignee' do
+          before do
+            merge_request.update_attribute(:assignee, @u_lazy_participant)
+            notification.resolve_all_discussions(merge_request, @u_disabled)
+          end
+
+          it { should_email(@u_lazy_participant) }
+        end
+
+        context 'by note' do
+          let!(:note) { create(:note_on_issue, noteable: merge_request, project_id: project.id, note: 'anything', author: @u_lazy_participant) }
+
+          before { notification.resolve_all_discussions(merge_request, @u_disabled) }
+
+          it { should_email(@u_lazy_participant) }
+        end
+
+        context 'by author' do
+          before do
+            merge_request.author = @u_lazy_participant
+            merge_request.save
+            notification.resolve_all_discussions(merge_request, @u_disabled)
+          end
+
+          it { should_email(@u_lazy_participant) }
+        end
+      end
+    end
   end
 
   describe 'Projects' do
@@ -1025,6 +1111,46 @@ describe NotificationService, services: true do
         should_not_email(@u_guest_watcher)
         should_not_email(@u_guest_custom)
         should_not_email(@u_disabled)
+      end
+    end
+  end
+
+  describe 'GroupMember' do
+    describe '#decline_group_invite' do
+      let(:creator) { create(:user) }
+      let(:group) { create(:group) }
+      let(:member) { create(:user) }
+
+      before(:each) do
+        group.add_owner(creator)
+        group.add_developer(member, creator)
+      end
+
+      it do
+        group_member = group.members.first
+
+        expect do
+          notification.decline_group_invite(group_member)
+        end.to change { ActionMailer::Base.deliveries.size }.by(1)
+      end
+    end
+  end
+
+  describe 'ProjectMember' do
+    describe '#decline_group_invite' do
+      let(:project) { create(:project) }
+      let(:member) { create(:user) }
+
+      before(:each) do
+        project.team << [member, :developer, project.owner]
+      end
+
+      it do
+        project_member = project.members.first
+
+        expect do
+          notification.decline_project_invite(project_member)
+        end.to change { ActionMailer::Base.deliveries.size }.by(1)
       end
     end
   end

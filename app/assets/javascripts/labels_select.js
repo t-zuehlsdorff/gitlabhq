@@ -4,7 +4,7 @@
       var _this;
       _this = this;
       $('.js-label-select').each(function(i, dropdown) {
-        var $block, $colorPreview, $dropdown, $form, $loading, $newLabelCreateButton, $newLabelError, $selectbox, $sidebarCollapsedValue, $value, abilityName, defaultLabel, enableLabelCreateButton, issueURLSplit, issueUpdateURL, labelHTMLTemplate, labelNoneHTMLTemplate, labelUrl, newColorField, newLabelField, projectId, resetForm, saveLabel, saveLabelData, selectedLabel, showAny, showNo;
+        var $block, $colorPreview, $dropdown, $form, $loading, $selectbox, $sidebarCollapsedValue, $value, abilityName, defaultLabel, enableLabelCreateButton, issueURLSplit, issueUpdateURL, labelHTMLTemplate, labelNoneHTMLTemplate, labelUrl, projectId, saveLabelData, selectedLabel, showAny, showNo, $sidebarLabelTooltip, initialSelected;
         $dropdown = $(dropdown);
         projectId = $dropdown.data('project-id');
         labelUrl = $dropdown.data('labels');
@@ -13,8 +13,6 @@
         if ((selectedLabel != null) && !$dropdown.hasClass('js-multiselect')) {
           selectedLabel = selectedLabel.split(',');
         }
-        newLabelField = $('#new_label_name');
-        newColorField = $('#new_label_color');
         showNo = $dropdown.data('show-no');
         showAny = $dropdown.data('show-any');
         defaultLabel = $dropdown.data('default-label');
@@ -23,12 +21,14 @@
         $block = $selectbox.closest('.block');
         $form = $dropdown.closest('form');
         $sidebarCollapsedValue = $block.find('.sidebar-collapsed-icon span');
+        $sidebarLabelTooltip = $block.find('.js-sidebar-labels-tooltip');
         $value = $block.find('.value');
-        $newLabelError = $('.js-label-error');
-        $colorPreview = $('.js-dropdown-label-color-preview');
-        $newLabelCreateButton = $('.js-new-label-btn');
-        $newLabelError.hide();
         $loading = $block.find('.block-loading').fadeOut();
+        initialSelected = $selectbox
+          .find('input[name="' + $dropdown.data('field-name') + '"]')
+          .map(function () {
+            return this.value;
+          }).get();
         if (issueUpdateURL != null) {
           issueURLSplit = issueUpdateURL.split('/');
         }
@@ -36,65 +36,22 @@
           labelHTMLTemplate = _.template('<% _.each(labels, function(label){ %> <a href="<%- ["",issueURLSplit[1], issueURLSplit[2],""].join("/") %>issues?label_name[]=<%- encodeURIComponent(label.title) %>"> <span class="label has-tooltip color-label" title="<%- label.description %>" style="background-color: <%- label.color %>; color: <%- label.text_color %>;"> <%- label.title %> </span> </a> <% }); %>');
           labelNoneHTMLTemplate = '<span class="no-value">None</span>';
         }
-        if (newLabelField.length) {
-          $('.suggest-colors-dropdown a').on("click", function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            newColorField.val($(this).data('color')).trigger('change');
-            return $colorPreview.css('background-color', $(this).data('color')).parent().addClass('is-active');
-          });
-          resetForm = function() {
-            newLabelField.val('').trigger('change');
-            newColorField.val('').trigger('change');
-            return $colorPreview.css('background-color', '').parent().removeClass('is-active');
-          };
-          $('.dropdown-menu-back').on('click', function() {
-            return resetForm();
-          });
-          $('.js-cancel-label-btn').on('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            resetForm();
-            return $('.dropdown-menu-back', $dropdown.parent()).trigger('click');
-          });
-          enableLabelCreateButton = function() {
-            if (newLabelField.val() !== '' && newColorField.val() !== '') {
-              $newLabelError.hide();
-              return $newLabelCreateButton.enable();
-            } else {
-              return $newLabelCreateButton.disable();
-            }
-          };
-          saveLabel = function() {
-            return Api.newLabel(projectId, {
-              name: newLabelField.val(),
-              color: newColorField.val()
-            }, function(label) {
-              var errors;
-              $newLabelCreateButton.enable();
-              if (label.message != null) {
-                errors = _.map(label.message, function(value, key) {
-                  return key + " " + value[0];
-                });
-                return $newLabelError.html(errors.join("<br/>")).show();
-              } else {
-                return $('.dropdown-menu-back', $dropdown.parent()).trigger('click');
-              }
-            });
-          };
-          newLabelField.on('keyup change', enableLabelCreateButton);
-          newColorField.on('keyup change', enableLabelCreateButton);
-          $newLabelCreateButton.disable().on('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            return saveLabel();
-          });
+
+        $sidebarLabelTooltip.tooltip();
+
+        if ($dropdown.closest('.dropdown').find('.dropdown-new-label').length) {
+          new gl.CreateLabelDropdown($dropdown.closest('.dropdown').find('.dropdown-new-label'), projectId);
         }
+
         saveLabelData = function() {
           var data, selected;
           selected = $dropdown.closest('.selectbox').find("input[name='" + ($dropdown.data('field-name')) + "']").map(function() {
             return this.value;
           }).get();
+
+          if (_.isEqual(initialSelected, selected)) return;
+          initialSelected = selected;
+
           data = {};
           data[abilityName] = {};
           data[abilityName].label_ids = selected;
@@ -109,7 +66,7 @@
             dataType: 'JSON',
             data: data
           }).done(function(data) {
-            var labelCount, template;
+            var labelCount, template, labelTooltipTitle, labelTitles;
             $loading.fadeOut();
             $dropdown.trigger('loaded.gl.dropdown');
             $selectbox.hide();
@@ -123,6 +80,27 @@
             }
             $value.removeAttr('style').html(template);
             $sidebarCollapsedValue.text(labelCount);
+
+            if (data.labels.length) {
+              labelTitles = data.labels.map(function(label) {
+                return label.title;
+              });
+
+              if (labelTitles.length > 5) {
+                labelTitles = labelTitles.slice(0, 5);
+                labelTitles.push('and ' + (data.labels.length - 5) + ' more');
+              }
+
+              labelTooltipTitle = labelTitles.join(', ');
+            } else {
+              labelTooltipTitle = '';
+              $sidebarLabelTooltip.tooltip('destroy');
+            }
+
+            $sidebarLabelTooltip
+              .attr('title', labelTooltipTitle)
+              .tooltip('fixTitle');
+
             $('.has-tooltip', $value).tooltip({
               container: 'body'
             });
@@ -187,15 +165,17 @@
                 selectedClass.push('is-indeterminate');
               }
               if (active.indexOf(label.id) !== -1) {
+                // Remove is-indeterminate class if the item will be marked as active
                 i = selectedClass.indexOf('is-indeterminate');
                 if (i !== -1) {
                   selectedClass.splice(i, 1);
                 }
                 selectedClass.push('is-active');
+                // Add input manually
                 instance.addInput(this.fieldName, label.id);
               }
             }
-            if ($form.find("input[type='hidden'][name='" + ($dropdown.data('fieldName')) + "'][value='" + (this.id(label)) + "']").length) {
+            if (this.id(label) && $form.find("input[type='hidden'][name='" + ($dropdown.data('fieldName')) + "'][value='" + this.id(label).toString().replace(/'/g, '\\\'') + "']").length) {
               selectedClass.push('is-active');
             }
             if ($dropdown.hasClass('js-multiselect') && removesAll) {
@@ -203,6 +183,7 @@
             }
             if (label.duplicate) {
               spacing = 100 / label.color.length;
+              // Reduce the colors to 4
               label.color = label.color.filter(function(color, i) {
                 return i < 4;
               });
@@ -223,11 +204,13 @@
             } else {
               colorEl = '';
             }
+            // We need to identify which items are actually labels
             if (label.id) {
               selectedClass.push('label-item');
               $a.attr('data-label-id', label.id);
             }
             $a.addClass(selectedClass.join(' ')).html(colorEl + " " + label.title);
+            // Return generated html
             return $li.html($a).prop('outerHTML');
           },
           persistWhenHide: $dropdown.data('persistWhenHide'),
@@ -269,7 +252,11 @@
             isIssueIndex = page === 'projects:issues:index';
             isMRIndex = page === 'projects:merge_requests:index';
             $selectbox.hide();
+            // display:block overrides the hide-collapse rule
             $value.removeAttr('style');
+            if (page === 'projects:boards:show') {
+              return;
+            }
             if ($dropdown.hasClass('js-multiselect')) {
               if ($dropdown.hasClass('js-filter-submit') && (isIssueIndex || isMRIndex)) {
                 selectedLabels = $dropdown.closest('form').find("input:hidden[name='" + ($dropdown.data('fieldName')) + "']");
@@ -283,13 +270,14 @@
               }
             }
             if ($dropdown.hasClass('js-filter-bulk-update')) {
+              // If we are persisting state we need the classes
               if (!this.options.persistWhenHide) {
                 return $dropdown.parent().find('.is-active, .is-indeterminate').removeClass();
               }
             }
           },
           multiSelect: $dropdown.hasClass('js-multiselect'),
-          clicked: function(label) {
+          clicked: function(label, $el, e) {
             var isIssueIndex, isMRIndex, page;
             _this.enableBulkLabelDropdown();
             if ($dropdown.hasClass('js-filter-bulk-update')) {
@@ -298,7 +286,23 @@
             page = $('body').data('page');
             isIssueIndex = page === 'projects:issues:index';
             isMRIndex = page === 'projects:merge_requests:index';
-            if ($dropdown.hasClass('js-filter-submit') && (isIssueIndex || isMRIndex)) {
+            if (page === 'projects:boards:show') {
+              if (label.isAny) {
+                gl.issueBoards.BoardsStore.state.filters['label_name'] = [];
+              } else if ($el.hasClass('is-active')) {
+                gl.issueBoards.BoardsStore.state.filters['label_name'].push(label.title);
+              } else {
+                var filters = gl.issueBoards.BoardsStore.state.filters['label_name'];
+                filters = filters.filter(function (filteredLabel) {
+                  return filteredLabel !== label.title;
+                });
+                gl.issueBoards.BoardsStore.state.filters['label_name'] = filters;
+              }
+
+              gl.issueBoards.BoardsStore.updateFiltersUrl();
+              e.preventDefault();
+              return;
+            } else if ($dropdown.hasClass('js-filter-submit') && (isIssueIndex || isMRIndex)) {
               if (!$dropdown.hasClass('js-multiselect')) {
                 selectedLabel = label.title;
                 return Issuable.filterResults($dropdown.closest('form'));
@@ -336,7 +340,9 @@
       if ($('.selected_issue:checked').length) {
         return;
       }
+      // Remove inputs
       $('.issues_bulk_update .labels-filter input[type="hidden"]').remove();
+      // Also restore button text
       return $('.issues_bulk_update .labels-filter .dropdown-toggle-text').text('Label');
     };
 

@@ -6,6 +6,7 @@ describe Project, models: true do
     it { is_expected.to belong_to(:namespace) }
     it { is_expected.to belong_to(:creator).class_name('User') }
     it { is_expected.to have_many(:users) }
+    it { is_expected.to have_many(:services) }
     it { is_expected.to have_many(:events).dependent(:destroy) }
     it { is_expected.to have_many(:merge_requests).dependent(:destroy) }
     it { is_expected.to have_many(:issues).dependent(:destroy) }
@@ -23,6 +24,31 @@ describe Project, models: true do
     it { is_expected.to have_one(:slack_service).dependent(:destroy) }
     it { is_expected.to have_one(:pushover_service).dependent(:destroy) }
     it { is_expected.to have_one(:asana_service).dependent(:destroy) }
+    it { is_expected.to have_one(:board).dependent(:destroy) }
+    it { is_expected.to have_one(:campfire_service).dependent(:destroy) }
+    it { is_expected.to have_one(:drone_ci_service).dependent(:destroy) }
+    it { is_expected.to have_one(:emails_on_push_service).dependent(:destroy) }
+    it { is_expected.to have_one(:builds_email_service).dependent(:destroy) }
+    it { is_expected.to have_one(:emails_on_push_service).dependent(:destroy) }
+    it { is_expected.to have_one(:irker_service).dependent(:destroy) }
+    it { is_expected.to have_one(:pivotaltracker_service).dependent(:destroy) }
+    it { is_expected.to have_one(:hipchat_service).dependent(:destroy) }
+    it { is_expected.to have_one(:flowdock_service).dependent(:destroy) }
+    it { is_expected.to have_one(:assembla_service).dependent(:destroy) }
+    it { is_expected.to have_one(:gemnasium_service).dependent(:destroy) }
+    it { is_expected.to have_one(:buildkite_service).dependent(:destroy) }
+    it { is_expected.to have_one(:bamboo_service).dependent(:destroy) }
+    it { is_expected.to have_one(:teamcity_service).dependent(:destroy) }
+    it { is_expected.to have_one(:jira_service).dependent(:destroy) }
+    it { is_expected.to have_one(:redmine_service).dependent(:destroy) }
+    it { is_expected.to have_one(:custom_issue_tracker_service).dependent(:destroy) }
+    it { is_expected.to have_one(:bugzilla_service).dependent(:destroy) }
+    it { is_expected.to have_one(:gitlab_issue_tracker_service).dependent(:destroy) }
+    it { is_expected.to have_one(:external_wiki_service).dependent(:destroy) }
+    it { is_expected.to have_one(:project_feature).dependent(:destroy) }
+    it { is_expected.to have_one(:import_data).class_name('ProjectImportData').dependent(:destroy) }
+    it { is_expected.to have_one(:last_event).class_name('Event') }
+    it { is_expected.to have_one(:forked_from_project).through(:forked_project_link) }
     it { is_expected.to have_many(:commit_statuses) }
     it { is_expected.to have_many(:pipelines) }
     it { is_expected.to have_many(:builds) }
@@ -30,9 +56,16 @@ describe Project, models: true do
     it { is_expected.to have_many(:runners) }
     it { is_expected.to have_many(:variables) }
     it { is_expected.to have_many(:triggers) }
+    it { is_expected.to have_many(:labels).dependent(:destroy) }
+    it { is_expected.to have_many(:users_star_projects).dependent(:destroy) }
     it { is_expected.to have_many(:environments).dependent(:destroy) }
     it { is_expected.to have_many(:deployments).dependent(:destroy) }
     it { is_expected.to have_many(:todos).dependent(:destroy) }
+    it { is_expected.to have_many(:releases).dependent(:destroy) }
+    it { is_expected.to have_many(:lfs_objects_projects).dependent(:destroy) }
+    it { is_expected.to have_many(:project_group_links).dependent(:destroy) }
+    it { is_expected.to have_many(:notification_settings).dependent(:destroy) }
+    it { is_expected.to have_many(:forks).through(:forked_project_links) }
 
     describe '#members & #requesters' do
       let(:project) { create(:project) }
@@ -177,7 +210,7 @@ describe Project, models: true do
       expect(project.runners_token).not_to eq('')
     end
 
-    it 'does not set an random toke if one provided' do
+    it 'does not set an random token if one provided' do
       project = FactoryGirl.create :empty_project, runners_token: 'my-token'
       expect(project.runners_token).to eq('my-token')
     end
@@ -246,7 +279,7 @@ describe Project, models: true do
     end
   end
 
-  describe "#new_issue_address" do
+  xdescribe "#new_issue_address" do
     let(:project) { create(:empty_project, path: "somewhere") }
     let(:user) { create(:user) }
 
@@ -275,20 +308,23 @@ describe Project, models: true do
   end
 
   describe 'last_activity methods' do
-    let(:project) { create(:project) }
-    let(:last_event) { double(created_at: Time.now) }
+    let(:timestamp) { Time.now - 2.hours }
+    let(:project) { create(:project, created_at: timestamp, updated_at: timestamp) }
 
     describe 'last_activity' do
       it 'alias last_activity to last_event' do
-        allow(project).to receive(:last_event).and_return(last_event)
+        last_event = create(:event, project: project)
+
         expect(project.last_activity).to eq(last_event)
       end
     end
 
     describe 'last_activity_date' do
       it 'returns the creation date of the project\'s last event if present' do
-        create(:event, project: project)
-        expect(project.last_activity_at.to_i).to eq(last_event.created_at.to_i)
+        expect_any_instance_of(Event).to receive(:try_obtain_lease).and_return(true)
+        new_event = create(:event, project: project, created_at: Time.now)
+
+        expect(project.last_activity_at.to_i).to eq(new_event.created_at.to_i)
       end
 
       it 'returns the project\'s last update date if it has no events' do
@@ -505,6 +541,18 @@ describe Project, models: true do
     end
   end
 
+  describe '#has_wiki?' do
+    let(:no_wiki_project) { build(:project, wiki_enabled: false, has_external_wiki: false) }
+    let(:wiki_enabled_project) { build(:project) }
+    let(:external_wiki_project) { build(:project, has_external_wiki: true) }
+
+    it 'returns true if project is wiki enabled or has external wiki' do
+      expect(wiki_enabled_project).to have_wiki
+      expect(external_wiki_project).to have_wiki
+      expect(no_wiki_project).not_to have_wiki
+    end
+  end
+
   describe '#external_wiki' do
     let(:project) { create(:project) }
 
@@ -684,30 +732,42 @@ describe Project, models: true do
     end
   end
 
-  describe '#pipeline' do
-    let(:project) { create :project }
-    let(:pipeline) { create :ci_pipeline, project: project, ref: 'master' }
+  describe '#pipeline_for' do
+    let(:project) { create(:project) }
+    let!(:pipeline) { create_pipeline }
 
-    subject { project.pipeline(pipeline.sha, 'master') }
+    shared_examples 'giving the correct pipeline' do
+      it { is_expected.to eq(pipeline) }
 
-    it { is_expected.to eq(pipeline) }
+      context 'return latest' do
+        let!(:pipeline2) { create_pipeline }
 
-    context 'return latest' do
-      let(:pipeline2) { create :ci_pipeline, project: project, ref: 'master' }
-
-      before do
-        pipeline
-        pipeline2
+        it { is_expected.to eq(pipeline2) }
       end
+    end
 
-      it { is_expected.to eq(pipeline2) }
+    context 'with explicit sha' do
+      subject { project.pipeline_for('master', pipeline.sha) }
+
+      it_behaves_like 'giving the correct pipeline'
+    end
+
+    context 'with implicit sha' do
+      subject { project.pipeline_for('master') }
+
+      it_behaves_like 'giving the correct pipeline'
+    end
+
+    def create_pipeline
+      create(:ci_pipeline,
+             project: project,
+             ref: 'master',
+             sha: project.commit('master').sha)
     end
   end
 
   describe '#builds_enabled' do
     let(:project) { create :project }
-
-    before { project.builds_enabled = true }
 
     subject { project.builds_enabled }
 
@@ -1360,6 +1420,68 @@ describe Project, models: true do
     end
   end
 
+  describe '#lfs_enabled?' do
+    let(:project) { create(:project) }
+
+    shared_examples 'project overrides group' do
+      it 'returns true when enabled in project' do
+        project.update_attribute(:lfs_enabled, true)
+
+        expect(project.lfs_enabled?).to be_truthy
+      end
+
+      it 'returns false when disabled in project' do
+        project.update_attribute(:lfs_enabled, false)
+
+        expect(project.lfs_enabled?).to be_falsey
+      end
+
+      it 'returns the value from the namespace, when no value is set in project' do
+        expect(project.lfs_enabled?).to eq(project.namespace.lfs_enabled?)
+      end
+    end
+
+    context 'LFS disabled in group' do
+      before do
+        project.namespace.update_attribute(:lfs_enabled, false)
+        enable_lfs
+      end
+
+      it_behaves_like 'project overrides group'
+    end
+
+    context 'LFS enabled in group' do
+      before do
+        project.namespace.update_attribute(:lfs_enabled, true)
+        enable_lfs
+      end
+
+      it_behaves_like 'project overrides group'
+    end
+
+    describe 'LFS disabled globally' do
+      shared_examples 'it always returns false' do
+        it do
+          expect(project.lfs_enabled?).to be_falsey
+          expect(project.namespace.lfs_enabled?).to be_falsey
+        end
+      end
+
+      context 'when no values are set' do
+        it_behaves_like 'it always returns false'
+      end
+
+      context 'when all values are set to true' do
+        before do
+          project.namespace.update_attribute(:lfs_enabled, true)
+          project.update_attribute(:lfs_enabled, true)
+        end
+
+        it_behaves_like 'it always returns false'
+      end
+    end
+  end
+
   describe '.where_paths_in' do
     context 'without any paths' do
       it 'returns an empty relation' do
@@ -1440,5 +1562,133 @@ describe Project, models: true do
       expect(shared_project.authorized_for_user?(developer, Gitlab::Access::MASTER)).to be(false)
       expect(shared_project.authorized_for_user?(master, Gitlab::Access::MASTER)).to be(true)
     end
+  end
+
+  describe 'change_head' do
+    let(:project) { create(:project) }
+
+    it 'calls the before_change_head method' do
+      expect(project.repository).to receive(:before_change_head)
+      project.change_head(project.default_branch)
+    end
+
+    it 'creates the new reference with rugged' do
+      expect(project.repository.rugged.references).to receive(:create).with('HEAD',
+                                                                            "refs/heads/#{project.default_branch}",
+                                                                            force: true)
+      project.change_head(project.default_branch)
+    end
+
+    it 'copies the gitattributes' do
+      expect(project.repository).to receive(:copy_gitattributes).with(project.default_branch)
+      project.change_head(project.default_branch)
+    end
+
+    it 'expires the avatar cache' do
+      expect(project.repository).to receive(:expire_avatar_cache).with(project.default_branch)
+      project.change_head(project.default_branch)
+    end
+
+    it 'reloads the default branch' do
+      expect(project).to receive(:reload_default_branch)
+      project.change_head(project.default_branch)
+    end
+  end
+
+  describe '#pushes_since_gc' do
+    let(:project) { create(:project) }
+
+    after do
+      project.reset_pushes_since_gc
+    end
+
+    context 'without any pushes' do
+      it 'returns 0' do
+        expect(project.pushes_since_gc).to eq(0)
+      end
+    end
+
+    context 'with a number of pushes' do
+      it 'returns the number of pushes' do
+        3.times { project.increment_pushes_since_gc }
+
+        expect(project.pushes_since_gc).to eq(3)
+      end
+    end
+  end
+
+  describe '#increment_pushes_since_gc' do
+    let(:project) { create(:project) }
+
+    after do
+      project.reset_pushes_since_gc
+    end
+
+    it 'increments the number of pushes since the last GC' do
+      3.times { project.increment_pushes_since_gc }
+
+      expect(project.pushes_since_gc).to eq(3)
+    end
+  end
+
+  describe '#reset_pushes_since_gc' do
+    let(:project) { create(:project) }
+
+    after do
+      project.reset_pushes_since_gc
+    end
+
+    it 'resets the number of pushes since the last GC' do
+      3.times { project.increment_pushes_since_gc }
+
+      project.reset_pushes_since_gc
+
+      expect(project.pushes_since_gc).to eq(0)
+    end
+  end
+
+  describe '#environments_for' do
+    let(:project) { create(:project) }
+    let(:environment) { create(:environment, project: project) }
+
+    context 'tagged deployment' do
+      before do
+        create(:deployment, environment: environment, ref: '1.0', tag: true, sha: project.commit.id)
+      end
+
+      it 'returns environment when with_tags is set' do
+        expect(project.environments_for('master', project.commit, with_tags: true)).to contain_exactly(environment)
+      end
+
+      it 'does not return environment when no with_tags is set' do
+        expect(project.environments_for('master', project.commit)).to be_empty
+      end
+
+      it 'does not return environment when commit is not part of deployment' do
+        expect(project.environments_for('master', project.commit('feature'))).to be_empty
+      end
+    end
+
+    context 'branch deployment' do
+      before do
+        create(:deployment, environment: environment, ref: 'master', sha: project.commit.id)
+      end
+
+      it 'returns environment when ref is set' do
+        expect(project.environments_for('master', project.commit)).to contain_exactly(environment)
+      end
+
+      it 'does not environment when ref is different' do
+        expect(project.environments_for('feature', project.commit)).to be_empty
+      end
+
+      it 'does not return environment when commit is not part of deployment' do
+        expect(project.environments_for('master', project.commit('feature'))).to be_empty
+      end
+    end
+  end
+
+  def enable_lfs
+    allow(Gitlab.config.lfs).to receive(:enabled).and_return(true)
   end
 end

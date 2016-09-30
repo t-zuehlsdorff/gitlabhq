@@ -1,7 +1,8 @@
 module Ci
   class Pipeline < ActiveRecord::Base
     extend Ci::Model
-    include Statuseable
+    include HasStatus
+    include Importable
 
     self.table_name = 'ci_commits'
 
@@ -12,12 +13,12 @@ module Ci
     has_many :builds, class_name: 'Ci::Build', foreign_key: :commit_id
     has_many :trigger_requests, dependent: :destroy, class_name: 'Ci::TriggerRequest', foreign_key: :commit_id
 
-    validates_presence_of :sha
-    validates_presence_of :ref
-    validates_presence_of :status
-    validate :valid_commit_sha
+    validates_presence_of :sha, unless: :importing?
+    validates_presence_of :ref, unless: :importing?
+    validates_presence_of :status, unless: :importing?
+    validate :valid_commit_sha, unless: :importing?
 
-    after_save :keep_around_commits
+    after_save :keep_around_commits, unless: :importing?
 
     delegate :stages, to: :statuses
 
@@ -55,6 +56,16 @@ module Ci
         pipeline.finished_at = Time.now
       end
 
+      after_transition [:created, :pending] => :running do |pipeline|
+        MergeRequest::Metrics.where(merge_request_id: pipeline.merge_requests.map(&:id)).
+          update_all(latest_build_started_at: pipeline.started_at, latest_build_finished_at: nil)
+      end
+
+      after_transition any => [:success] do |pipeline|
+        MergeRequest::Metrics.where(merge_request_id: pipeline.merge_requests.map(&:id)).
+          update_all(latest_build_finished_at: pipeline.finished_at)
+      end
+
       before_transition do |pipeline|
         pipeline.update_duration
       end
@@ -65,8 +76,8 @@ module Ci
     end
 
     # ref can't be HEAD or SHA, can only be branch/tag name
-    scope :latest_successful_for, ->(ref = default_branch) do
-      where(ref: ref).success.order(id: :desc).limit(1)
+    def self.latest_successful_for(ref)
+      where(ref: ref).order(id: :desc).success.first
     end
 
     def self.truncate_sha(sha)
@@ -76,6 +87,14 @@ module Ci
     def self.stages
       # We use pluck here due to problems with MySQL which doesn't allow LIMIT/OFFSET in queries
       CommitStatus.where(pipeline: pluck(:id)).stages
+    end
+
+    def self.total_duration
+      where.not(duration: nil).sum(:duration)
+    end
+
+    def stages_with_latest_statuses
+      statuses.latest.includes(project: :namespace).order(:stage_idx).group_by(&:stage)
     end
 
     def project_id
@@ -140,6 +159,10 @@ module Ci
       builds.latest.failed.select(&:retryable?).each do |build|
         Ci::Build.retry(build, user)
       end
+    end
+
+    def mark_as_processable_after_stage(stage_idx)
+      builds.skipped.where('stage_idx > ?', stage_idx).find_each(&:process)
     end
 
     def latest?
@@ -229,13 +252,16 @@ module Ci
     end
 
     def build_updated
-      case latest_builds_status
-      when 'pending' then enqueue
-      when 'running' then run
-      when 'success' then succeed
-      when 'failed' then drop
-      when 'canceled' then cancel
-      when 'skipped' then skip
+      with_lock do
+        reload
+        case latest_builds_status
+        when 'pending' then enqueue
+        when 'running' then run
+        when 'success' then succeed
+        when 'failed' then drop
+        when 'canceled' then cancel
+        when 'skipped' then skip
+        end
       end
     end
 
@@ -245,14 +271,33 @@ module Ci
       ]
     end
 
+    def queued_duration
+      return unless started_at
+
+      seconds = (started_at - created_at).to_i
+      seconds unless seconds.zero?
+    end
+
     def update_duration
-      self.duration = statuses.latest.duration
+      return unless started_at
+
+      self.duration = Gitlab::Ci::PipelineDuration.from_pipeline(self)
     end
 
     def execute_hooks
       data = pipeline_data
       project.execute_hooks(data, :pipeline_hooks)
       project.execute_services(data, :pipeline_hooks)
+    end
+
+    # Merge requests for which the current pipeline is running against
+    # the merge request's latest commit.
+    def merge_requests
+      @merge_requests ||=
+        begin
+          project.merge_requests.where(source_branch: self.ref).
+            select { |merge_request| merge_request.pipeline.try(:id) == self.id }
+        end
     end
 
     private

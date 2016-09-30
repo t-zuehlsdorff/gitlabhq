@@ -122,6 +122,17 @@ describe 'Issues', feature: true do
           expect(page).to have_content date.to_s(:medium)
         end
       end
+
+      it 'warns about version conflict' do
+        issue.update(title: "New title")
+
+        fill_in 'issue_title', with: 'bug 345'
+        fill_in 'issue_description', with: 'bug description'
+
+        click_button 'Save changes'
+
+        expect(page).to have_content 'Someone edited the issue the same time you did'
+      end
     end
   end
 
@@ -133,7 +144,7 @@ describe 'Issues', feature: true do
       visit namespace_project_issues_path(project.namespace, project, assignee_id: @user.id)
 
       expect(page).to have_content 'foobar'
-      expect(page.all('.issue-no-comments').first.text).to eq "0"
+      expect(page.all('.no-comments').first.text).to eq "0"
     end
   end
 
@@ -358,6 +369,24 @@ describe 'Issues', feature: true do
     end
   end
 
+  describe 'update labels from issue#show', js: true do
+    let(:issue) { create(:issue, project: project, author: @user, assignee: @user) }
+    let!(:label) { create(:label, project: project) }
+
+    before do
+      visit namespace_project_issue_path(project.namespace, project, issue)
+    end
+
+    it 'will not send ajax request when no data is changed' do
+      page.within '.labels' do
+        click_link 'Edit'
+        first('.dropdown-menu-close').click
+
+        expect(page).not_to have_selector('.block-loading')
+      end
+    end
+  end
+
   describe 'update assignee from issue#show' do
     let(:issue) { create(:issue, project: project, author: @user, assignee: @user) }
 
@@ -525,7 +554,7 @@ describe 'Issues', feature: true do
     end
   end
 
-  describe 'new issue by email' do
+  xdescribe 'new issue by email' do
     shared_examples 'show the email in the modal' do
       before do
         stub_incoming_email_setting(enabled: true, address: "p+%{key}@gl.ab")
