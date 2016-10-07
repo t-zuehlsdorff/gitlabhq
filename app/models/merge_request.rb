@@ -31,7 +31,7 @@ class MergeRequest < ActiveRecord::Base
 
   # Temporary fields to store compare vars
   # when creating new merge request
-  attr_accessor :can_be_created, :compare_commits, :compare
+  attr_accessor :can_be_created, :compare_commits, :diff_options, :compare
 
   state_machine :state, initial: :opened do
     event :close do
@@ -155,6 +155,20 @@ class MergeRequest < ActiveRecord::Base
     where("merge_requests.id IN (#{union.to_sql})")
   end
 
+  WIP_REGEX = /\A\s*(\[WIP\]\s*|WIP:\s*|WIP\s+)+\s*/i.freeze
+
+  def self.work_in_progress?(title)
+    !!(title =~ WIP_REGEX)
+  end
+
+  def self.wipless_title(title)
+    title.sub(WIP_REGEX, "")
+  end
+
+  def self.wip_title(title)
+    work_in_progress?(title) ? title : "WIP: #{title}"
+  end
+
   def to_reference(from_project = nil)
     reference = "#{self.class.reference_prefix}#{iid}"
 
@@ -182,7 +196,7 @@ class MergeRequest < ActiveRecord::Base
   end
 
   def diff_size
-    merge_request_diff.size
+    diffs(diff_options).size
   end
 
   def diff_base_commit
@@ -389,14 +403,16 @@ class MergeRequest < ActiveRecord::Base
     @closed_event ||= target_project.events.where(target_id: self.id, target_type: "MergeRequest", action: Event::CLOSED).last
   end
 
-  WIP_REGEX = /\A\s*(\[WIP\]\s*|WIP:\s*|WIP\s+)+\s*/i.freeze
-
   def work_in_progress?
-    !!(title =~ WIP_REGEX)
+    self.class.work_in_progress?(title)
   end
 
   def wipless_title
-    self.title.sub(WIP_REGEX, "")
+    self.class.wipless_title(self.title)
+  end
+
+  def wip_title
+    self.class.wip_title(self.title)
   end
 
   def mergeable?(skip_ci_check: false)
@@ -507,9 +523,13 @@ class MergeRequest < ActiveRecord::Base
   # `MergeRequestsClosingIssues` model. This is a performance optimization.
   # Calculating this information for a number of merge requests requires
   # running `ReferenceExtractor` on each of them separately.
+  # This optimization does not apply to issues from external sources.
   def cache_merge_request_closes_issues!(current_user = self.author)
+    return if project.has_external_issue_tracker?
+
     transaction do
       self.merge_requests_closing_issues.delete_all
+
       closes_issues(current_user).each do |issue|
         self.merge_requests_closing_issues.create!(issue: issue)
       end
