@@ -176,10 +176,9 @@ Check if GitLab and its environment are configured correctly:
 
 ### Start Your GitLab Instance
 
-    # If you are still using the git user, type `exit` to change back to root
-    # then start the GitLab
+    # use this command as root user to start gitlab:
     service gitlab start
-    # or
+    # or this:
     /usr/local/etc/rc.d/gitlab restart
 
 ## 7. Nginx
