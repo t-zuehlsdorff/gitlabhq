@@ -58,6 +58,7 @@ You are free to build it from source. Please checkout the latest ports-tree and 
 
 We recommend using a PostgreSQL database. For MySQL check [MySQL setup guide](database_mysql.md). *Note*: because we need to make use of extensions you need at least pgsql 9.1.
 The current default version of PostgreSQL in the Portstree is 9.3 and is therefore used. *Note*: we do not cope how to install PostgreSQL properly.
+*Attention*: since PostgreSQL 9.6 the "pgsql" user is renamed to "postgres". PostgreSQL 9.6 user need to change the name accordingly.
 
     # Install the database packages
     # If you want newer versions change them appropriately to: postgresql94-server, postgresql94-server, etc.
