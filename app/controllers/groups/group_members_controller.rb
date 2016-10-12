@@ -15,7 +15,7 @@ class Groups::GroupMembersController < Groups::ApplicationController
     end
 
     @members = @members.order('access_level DESC').page(params[:page]).per(50)
-    @requesters = @group.requesters if can?(current_user, :admin_group, @group)
+    @requesters = AccessRequestsFinder.new(@group).execute(current_user)
 
     @group_member = @group.group_members.new
   end
@@ -40,10 +40,7 @@ class Groups::GroupMembersController < Groups::ApplicationController
   end
 
   def destroy
-    @group_member = @group.members.find_by(id: params[:id]) ||
-      @group.requesters.find_by(id: params[:id])
-
-    Members::DestroyService.new(@group_member, current_user).execute
+    Members::DestroyService.new(@group, current_user, id: params[:id]).execute(:all)
 
     respond_to do |format|
       format.html { redirect_to group_group_members_path(@group), notice: 'User was successfully removed from group.' }

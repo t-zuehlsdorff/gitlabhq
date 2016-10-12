@@ -23,6 +23,7 @@ The following table depicts the various user permission levels in a project.
 | See a list of builds                  | ✓ [^1]  | ✓          | ✓           | ✓        | ✓      |
 | See a build log                       | ✓ [^1]  | ✓          | ✓           | ✓        | ✓      |
 | Download and browse build artifacts   | ✓ [^1]  | ✓          | ✓           | ✓        | ✓      |
+| View wiki pages                       | ✓       | ✓          | ✓           | ✓        | ✓      |
 | Pull project code                     |         | ✓          | ✓           | ✓        | ✓      |
 | Download project                      |         | ✓          | ✓           | ✓        | ✓      |
 | Create code snippets                  |         | ✓          | ✓           | ✓        | ✓      |
@@ -31,6 +32,7 @@ The following table depicts the various user permission levels in a project.
 | See a commit status                   |         | ✓          | ✓           | ✓        | ✓      |
 | See a container registry              |         | ✓          | ✓           | ✓        | ✓      |
 | See environments                      |         | ✓          | ✓           | ✓        | ✓      |
+| See a list of merge requests          |         | ✓          | ✓           | ✓        | ✓      |
 | Manage/Accept merge requests          |         |            | ✓           | ✓        | ✓      |
 | Create new merge request              |         |            | ✓           | ✓        | ✓      |
 | Create new branches                   |         |            | ✓           | ✓        | ✓      |

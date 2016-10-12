@@ -644,6 +644,20 @@ describe Projects::MergeRequestsController do
     end
   end
 
+  context 'POST remove_wip' do
+    it 'removes the wip status' do
+      merge_request.title = merge_request.wip_title
+      merge_request.save
+
+      post :remove_wip,
+           namespace_id: merge_request.project.namespace.to_param,
+           project_id: merge_request.project.to_param,
+           id: merge_request.iid
+
+      expect(merge_request.reload.title).to eq(merge_request.wipless_title)
+    end
+  end
+
   context 'POST resolve_conflicts' do
     let(:json_response) { JSON.parse(response.body) }
     let!(:original_head_sha) { merge_request_with_conflicts.diff_head_sha }
@@ -692,6 +706,54 @@ describe Projects::MergeRequestsController do
       it 'does not create a new commit' do
         expect(original_head_sha).to eq(merge_request_with_conflicts.source_branch_head.sha)
       end
+    end
+  end
+
+  describe 'POST assign_related_issues' do
+    let(:issue1) { create(:issue, project: project) }
+    let(:issue2) { create(:issue, project: project) }
+
+    def post_assign_issues
+      merge_request.update!(description: "Closes #{issue1.to_reference} and #{issue2.to_reference}",
+                            author: user,
+                            source_branch: 'feature',
+                            target_branch: 'master')
+
+      post :assign_related_issues,
+           namespace_id: project.namespace.to_param,
+           project_id: project.to_param,
+           id: merge_request.iid
+    end
+
+    it 'shows a flash message on success' do
+      post_assign_issues
+
+      expect(flash[:notice]).to eq '2 issues have been assigned to you'
+    end
+
+    it 'correctly pluralizes flash message on success' do
+      issue2.update!(assignee: user)
+
+      post_assign_issues
+
+      expect(flash[:notice]).to eq '1 issue has been assigned to you'
+    end
+
+    it 'calls MergeRequests::AssignIssuesService' do
+      expect(MergeRequests::AssignIssuesService).to receive(:new).
+        with(project, user, merge_request: merge_request).
+        and_return(double(execute: { count: 1 }))
+
+      post_assign_issues
+    end
+
+    it 'is skipped when not signed in' do
+      project.update!(visibility_level: Gitlab::VisibilityLevel::PUBLIC)
+      sign_out(:user)
+
+      expect(MergeRequests::AssignIssuesService).not_to receive(:new)
+
+      post_assign_issues
     end
   end
 end

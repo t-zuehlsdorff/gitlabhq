@@ -101,7 +101,7 @@ Once you have your token, pass it to the API using either the `private_token`
 parameter or the `PRIVATE-TOKEN` header.
 
 
-### Session cookie
+### Session Cookie
 
 When signing in to GitLab as an ordinary user, a `_gitlab_session` cookie is
 set. The API will use this cookie for authentication if it is present, but using
@@ -354,6 +354,19 @@ follows:
     }
 }
 ```
+
+## Unknown route
+
+When you try to access an API URL that does not exist you will receive 404 Not Found.
+
+```
+HTTP/1.1 404 Not Found
+Content-Type: application/json
+{
+    "error": "404 Not Found"
+}
+```
+
 
 ## Clients
 

@@ -108,7 +108,7 @@ Then select 'Internet Site' and press enter to confirm the hostname.
 
 ## 2. Ruby
 
-_**Note:** The current supported Ruby versions are 2.1.x and 2.3.x. 2.3.x is preferred, and support for 2.1.x will be dropped in the future.
+**Note:** The current supported Ruby versions are 2.1.x and 2.3.x. 2.3.x is preferred, and support for 2.1.x will be dropped in the future.
 
 The use of Ruby version managers such as [RVM], [rbenv] or [chruby] with GitLab
 in production, frequently leads to hard to diagnose problems. For example,
@@ -268,9 +268,9 @@ sudo usermod -aG redis git
 ### Clone the Source
 
     # Clone GitLab repository
-    sudo -u git -H git clone https://gitlab.com/gitlab-org/gitlab-ce.git -b 8-12-stable gitlab
+    sudo -u git -H git clone https://gitlab.com/gitlab-org/gitlab-ce.git -b 8-13-stable gitlab
 
-**Note:** You can change `8-12-stable` to `master` if you want the *bleeding edge* version, but never install master on a production server!
+**Note:** You can change `8-13-stable` to `master` if you want the *bleeding edge* version, but never install master on a production server!
 
 ### Configure It
 
@@ -400,7 +400,7 @@ If you are not using Linux you may have to run `gmake` instead of
     cd /home/git
     sudo -u git -H git clone https://gitlab.com/gitlab-org/gitlab-workhorse.git
     cd gitlab-workhorse
-    sudo -u git -H git checkout v0.8.2
+    sudo -u git -H git checkout v0.8.4
     sudo -u git -H make
 
 ### Initialize Database and Activate Advanced Features
@@ -563,7 +563,7 @@ Using a self-signed certificate is discouraged but if you must use it follow the
 
 ### Enable Reply by email
 
-See the ["Reply by email" documentation](../incoming_email/README.md) for more information on how to set this up.
+See the ["Reply by email" documentation](../administration/reply_by_email.md) for more information on how to set this up.
 
 ### LDAP Authentication
 

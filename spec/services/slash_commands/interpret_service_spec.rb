@@ -86,12 +86,40 @@ describe SlashCommands::InterpretService, services: true do
       end
     end
 
+    shared_examples 'multiple label command' do
+      it 'fetches label ids and populates add_label_ids if content contains multiple /label' do
+        bug # populate the label
+        inprogress # populate the label
+        _, updates = service.execute(content, issuable)
+
+        expect(updates).to eq(add_label_ids: [inprogress.id, bug.id])
+      end
+    end
+
+    shared_examples 'multiple label with same argument' do
+      it 'prevents duplicate label ids and populates add_label_ids if content contains multiple /label' do
+        inprogress # populate the label
+        _, updates = service.execute(content, issuable)
+
+        expect(updates).to eq(add_label_ids: [inprogress.id])
+      end
+    end
+
     shared_examples 'unlabel command' do
       it 'fetches label ids and populates remove_label_ids if content contains /unlabel' do
         issuable.update(label_ids: [inprogress.id]) # populate the label
         _, updates = service.execute(content, issuable)
 
         expect(updates).to eq(remove_label_ids: [inprogress.id])
+      end
+    end
+
+    shared_examples 'multiple unlabel command' do
+      it 'fetches label ids and populates remove_label_ids if content contains  mutiple /unlabel' do
+        issuable.update(label_ids: [inprogress.id, bug.id]) # populate the label
+        _, updates = service.execute(content, issuable)
+
+        expect(updates).to eq(remove_label_ids: [inprogress.id, bug.id])
       end
     end
 
@@ -162,6 +190,23 @@ describe SlashCommands::InterpretService, services: true do
         _, updates = service.execute(content, issuable)
 
         expect(updates).to eq(due_date: nil)
+      end
+    end
+
+    shared_examples 'wip command' do
+      it 'returns wip_event: "wip" if content contains /wip' do
+        _, updates = service.execute(content, issuable)
+
+        expect(updates).to eq(wip_event: 'wip')
+      end
+    end
+
+    shared_examples 'unwip command' do
+      it 'returns wip_event: "unwip" if content contains /wip' do
+        issuable.update(title: issuable.wip_title)
+        _, updates = service.execute(content, issuable)
+
+        expect(updates).to eq(wip_event: 'unwip')
       end
     end
 
@@ -268,6 +313,16 @@ describe SlashCommands::InterpretService, services: true do
       let(:issuable) { merge_request }
     end
 
+    it_behaves_like 'multiple label command' do
+      let(:content) { %(/label ~"#{inprogress.title}" \n/label ~#{bug.title}) }
+      let(:issuable) { issue }
+    end
+
+    it_behaves_like 'multiple label with same argument' do
+      let(:content) { %(/label ~"#{inprogress.title}" \n/label ~#{inprogress.title}) }
+      let(:issuable) { issue }
+    end	
+
     it_behaves_like 'unlabel command' do
       let(:content) { %(/unlabel ~"#{inprogress.title}") }
       let(:issuable) { issue }
@@ -276,6 +331,11 @@ describe SlashCommands::InterpretService, services: true do
     it_behaves_like 'unlabel command' do
       let(:content) { %(/unlabel ~"#{inprogress.title}") }
       let(:issuable) { merge_request }
+    end
+
+    it_behaves_like 'multiple unlabel command' do
+      let(:content) { %(/unlabel ~"#{inprogress.title}" \n/unlabel ~#{bug.title}) }
+      let(:issuable) { issue }
     end
 
     it_behaves_like 'unlabel command with no argument' do
@@ -374,6 +434,16 @@ describe SlashCommands::InterpretService, services: true do
     it_behaves_like 'remove_due_date command' do
       let(:content) { '/remove_due_date' }
       let(:issuable) { issue }
+    end
+
+    it_behaves_like 'wip command' do
+      let(:content) { '/wip' }
+      let(:issuable) { merge_request }
+    end
+
+    it_behaves_like 'unwip command' do
+      let(:content) { '/wip' }
+      let(:issuable) { merge_request }
     end
 
     it_behaves_like 'empty command' do
