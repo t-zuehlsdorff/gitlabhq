@@ -51,7 +51,7 @@ gem 'browser', '~> 2.2'
 
 # Extracting information from a git repository
 # Provide access to Gitlab::Git library
-gem 'gitlab_git', '~> 10.6.7'
+gem 'gitlab_git', '~> 10.6.8'
 
 # LDAP Auth
 # GitLab fork with several improvements to original library. For full list of changes
@@ -262,6 +262,8 @@ group :development do
 
   # thin instead webrick
   gem 'thin', '~> 1.7.0'
+
+  gem 'activerecord_sane_schema_dumper', '0.2'
 end
 
 group :development, :test do
@@ -341,7 +343,7 @@ gem 'oauth2', '~> 1.2.0'
 gem 'paranoia', '~> 2.0'
 
 # Health check
-gem 'health_check', '~> 2.1.0'
+gem 'health_check', '~> 2.2.0'
 
 # System information
 gem 'vmstat', '~> 2.2'
