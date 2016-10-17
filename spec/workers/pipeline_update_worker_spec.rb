@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe UpdatePipelineWorker do
+describe PipelineUpdateWorker do
   describe '#perform' do
     context 'when pipeline exists' do
       let(:pipeline) { create(:ci_pipeline) }

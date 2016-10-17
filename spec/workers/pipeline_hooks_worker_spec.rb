@@ -1,12 +1,13 @@
 require 'spec_helper'
 
-describe ProcessPipelineWorker do
+describe PipelineHooksWorker do
   describe '#perform' do
     context 'when pipeline exists' do
       let(:pipeline) { create(:ci_pipeline) }
 
-      it 'processes pipeline' do
-        expect_any_instance_of(Ci::Pipeline).to receive(:process!)
+      it 'executes hooks for the pipeline' do
+        expect_any_instance_of(Ci::Pipeline)
+          .to receive(:execute_hooks)
 
         described_class.new.perform(pipeline.id)
       end

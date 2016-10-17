@@ -1,10 +1,9 @@
-class UpdatePipelineWorker
+class PipelineHooksWorker
   include Sidekiq::Worker
-
   sidekiq_options queue: :default
 
   def perform(pipeline_id)
     Ci::Pipeline.find_by(id: pipeline_id)
-      .try(:update_status)
+      .try(:execute_hooks)
   end
 end
