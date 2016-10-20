@@ -183,6 +183,15 @@
   .ci-coverage {
     float: right;
   }
+  
+  .stop-env-container {
+    color: $gl-text-color;
+    float: right;
+    
+    a {
+      color: $gl-text-color;
+    }
+  }
 }
 
 .mr_source_commit,
@@ -426,13 +435,6 @@
   .fa-info-circle {
     color: $orange-normal;
     padding-right: 5px;
-  }
-}
-
-.merge-request-details {
-
-  .title {
-    margin-bottom: 20px;
   }
 }
 

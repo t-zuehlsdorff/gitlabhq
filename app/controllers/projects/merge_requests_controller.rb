@@ -9,15 +9,15 @@ class Projects::MergeRequestsController < Projects::ApplicationController
 
   before_action :module_enabled
   before_action :merge_request, only: [
-    :edit, :update, :show, :diffs, :commits, :conflicts, :builds, :pipelines, :merge, :merge_check,
+    :edit, :update, :show, :diffs, :commits, :conflicts, :conflict_for_path, :builds, :pipelines, :merge, :merge_check,
     :ci_status, :ci_environments_status, :toggle_subscription, :cancel_merge_when_build_succeeds, :remove_wip, :resolve_conflicts, :assign_related_issues
   ]
   before_action :validates_merge_request, only: [:show, :diffs, :commits, :builds, :pipelines]
-  before_action :define_show_vars, only: [:show, :diffs, :commits, :conflicts, :builds, :pipelines]
+  before_action :define_show_vars, only: [:show, :diffs, :commits, :conflicts, :conflict_for_path, :builds, :pipelines]
   before_action :define_widget_vars, only: [:merge, :cancel_merge_when_build_succeeds, :merge_check]
   before_action :define_commit_vars, only: [:diffs]
   before_action :define_diff_comment_vars, only: [:diffs]
-  before_action :ensure_ref_fetched, only: [:show, :diffs, :commits, :builds, :conflicts, :pipelines]
+  before_action :ensure_ref_fetched, only: [:show, :diffs, :commits, :builds, :conflicts, :conflict_for_path, :pipelines]
   before_action :close_merge_request_without_source_project, only: [:show, :diffs, :commits, :builds, :pipelines]
   before_action :apply_diff_view_cookie!, only: [:new_diffs]
   before_action :build_merge_request, only: [:new, :new_diffs]
@@ -33,14 +33,17 @@ class Projects::MergeRequestsController < Projects::ApplicationController
 
   before_action :authenticate_user!, only: [:assign_related_issues]
 
-  before_action :authorize_can_resolve_conflicts!, only: [:conflicts, :resolve_conflicts]
+  before_action :authorize_can_resolve_conflicts!, only: [:conflicts, :conflict_for_path, :resolve_conflicts]
 
   def index
     @merge_requests = merge_requests_collection
     @merge_requests = @merge_requests.page(params[:page])
     @merge_requests = @merge_requests.preload(:target_project)
 
-    @labels = @project.labels.where(title: params[:label_name])
+    if params[:label_name].present?
+      labels_params = { project_id: @project.id, title: params[:label_name] }
+      @labels = LabelsFinder.new(current_user, labels_params).execute
+    end
 
     respond_to do |format|
       format.html
@@ -170,6 +173,16 @@ class Projects::MergeRequestsController < Projects::ApplicationController
     end
   end
 
+  def conflict_for_path
+    return render_404 unless @merge_request.conflicts_can_be_resolved_in_ui?
+
+    file = @merge_request.conflicts.file_for_path(params[:old_path], params[:new_path])
+
+    return render_404 unless file
+
+    render json: file, full_content: true
+  end
+
   def resolve_conflicts
     return render_404 unless @merge_request.conflicts_can_be_resolved_in_ui?
 
@@ -184,7 +197,7 @@ class Projects::MergeRequestsController < Projects::ApplicationController
       flash[:notice] = 'All merge conflicts were resolved. The merge request can now be merged.'
 
       render json: { redirect_to: namespace_project_merge_request_url(@project.namespace, @project, @merge_request, resolved_conflicts: true) }
-    rescue Gitlab::Conflict::File::MissingResolution => e
+    rescue Gitlab::Conflict::ResolutionError => e
       render status: :bad_request, json: { message: e.message }
     end
   end
@@ -412,10 +425,16 @@ class Projects::MergeRequestsController < Projects::ApplicationController
           project = environment.project
           deployment = environment.first_deployment_for(@merge_request.diff_head_commit)
 
+          stop_url =
+            if environment.stoppable? && can?(current_user, :create_deployment, environment)
+              stop_namespace_project_environment_path(project.namespace, project, environment)
+            end
+
           {
             id: environment.id,
             name: environment.name,
             url: namespace_project_environment_path(project.namespace, project, environment),
+            stop_url: stop_url,
             external_url: environment.external_url,
             external_url_formatted: environment.formatted_external_url,
             deployed_at: deployment.try(:created_at),
@@ -473,13 +492,12 @@ class Projects::MergeRequestsController < Projects::ApplicationController
     @noteable = @merge_request
     @commits_count = @merge_request.commits.count
 
-    @pipeline = @merge_request.pipeline
-    @statuses = @pipeline.statuses.relevant if @pipeline
-
     if @merge_request.locked_long_ago?
       @merge_request.unlock_mr
       @merge_request.close
     end
+
+    define_pipelines_vars
   end
 
   # Discussion tab data is rendered on html responses of actions
@@ -507,7 +525,6 @@ class Projects::MergeRequestsController < Projects::ApplicationController
 
   def define_widget_vars
     @pipeline = @merge_request.pipeline
-    @pipelines = [@pipeline].compact
   end
 
   def define_commit_vars
@@ -534,6 +551,15 @@ class Projects::MergeRequestsController < Projects::ApplicationController
     )
   end
 
+  def define_pipelines_vars
+    @pipelines = @merge_request.all_pipelines
+
+    if @pipelines.any?
+      @pipeline = @pipelines.first
+      @statuses = @pipeline.statuses.relevant
+    end
+  end
+
   def define_new_vars
     @noteable = @merge_request
 
@@ -549,10 +575,12 @@ class Projects::MergeRequestsController < Projects::ApplicationController
     @commit = @merge_request.diff_head_commit
     @base_commit = @merge_request.diff_base_commit
 
-    @pipeline = @merge_request.pipeline
-    @statuses = @pipeline.statuses.relevant if @pipeline
     @note_counts = Note.where(commit_id: @commits.map(&:id)).
       group(:commit_id).count
+
+    @labels = LabelsFinder.new(current_user, project_id: @project.id).execute
+
+    define_pipelines_vars
   end
 
   def invalid_mr

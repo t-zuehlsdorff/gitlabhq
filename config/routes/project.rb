@@ -267,6 +267,7 @@ resources :namespaces, path: '/', constraints: { id: /[a-zA-Z.0-9_\-]+/ }, only:
           get :commits
           get :diffs
           get :conflicts
+          get :conflict_for_path
           get :builds
           get :pipelines
           get :merge_check
@@ -318,7 +319,11 @@ resources :namespaces, path: '/', constraints: { id: /[a-zA-Z.0-9_\-]+/ }, only:
         end
       end
 
-      resources :environments
+      resources :environments, except: [:destroy] do
+        member do
+          post :stop
+        end
+      end
 
       resource :cycle_analytics, only: [:show]
 
