@@ -25,29 +25,15 @@ class Projects::ProjectMembersController < Projects::ApplicationController
   end
 
   def create
-    @project.team.add_users(
-      params[:user_ids].split(','),
-      params[:access_level],
-      expires_at: params[:expires_at],
-      current_user: current_user
-    )
+    status = Members::CreateService.new(@project, current_user, params).execute
 
-    if params[:group_ids].present?
-      group_ids = params[:group_ids].split(',')
-      groups = Group.where(id: group_ids)
+    redirect_url = namespace_project_project_members_path(@project.namespace, @project)
 
-      groups.each do |group|
-        next unless can?(current_user, :read_group, group)
-
-        project.project_group_links.create(
-          group: group,
-          group_access: params[:access_level],
-          expires_at: params[:expires_at]
-        )
-      end
+    if status
+      redirect_to redirect_url, notice: 'Users were successfully added.'
+    else
+      redirect_to redirect_url, alert: 'No users or groups specified.'
     end
-
-    redirect_to namespace_project_project_members_path(@project.namespace, @project)
   end
 
   def update

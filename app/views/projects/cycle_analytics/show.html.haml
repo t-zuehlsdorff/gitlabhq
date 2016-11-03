@@ -1,11 +1,15 @@
 - @no_container = true
 - page_title "Cycle Analytics"
+
+- content_for :page_specific_javascripts do
+  = page_specific_javascript_tag('cycle_analytics/cycle_analytics_bundle.js')
+
 = render "projects/pipelines/head"
 
-#cycle-analytics{class: container_class, "v-cloak" => "true", data: { request_path: project_cycle_analytics_path(@project)}}
+#cycle-analytics{class: container_class, "v-cloak" => "true", data: { request_path: project_cycle_analytics_path(@project) }}
 
   .bordered-box.landing.content-block{"v-if" => "!isHelpDismissed"}
-    = icon('times', class: 'dismiss-icon', "@click": "dismissLanding()")
+    = icon('times', class: 'dismiss-icon', "@click" => "dismissLanding()")
     .row
       .col-sm-3.col-xs-12.svg-container
         = custom_icon('icon_cycle_analytics_splash')

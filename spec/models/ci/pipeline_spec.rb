@@ -88,23 +88,37 @@ describe Ci::Pipeline, models: true do
 
     context 'no failed builds' do
       before do
-        FactoryGirl.create :ci_build, name: "rspec", pipeline: pipeline, status: 'success'
+        create_build('rspec', 'success')
       end
 
-      it 'be not retryable' do
+      it 'is not retryable' do
         is_expected.to be_falsey
+      end
+
+      context 'one canceled job' do
+        before do
+          create_build('rubocop', 'canceled')
+        end
+
+        it 'is retryable' do
+          is_expected.to be_truthy
+        end
       end
     end
 
     context 'with failed builds' do
       before do
-        FactoryGirl.create :ci_build, name: "rspec", pipeline: pipeline, status: 'running'
-        FactoryGirl.create :ci_build, name: "rubocop", pipeline: pipeline, status: 'failed'
+        create_build('rspec', 'running')
+        create_build('rubocop', 'failed')
       end
 
-      it 'be retryable' do
+      it 'is retryable' do
         is_expected.to be_truthy
       end
+    end
+
+    def create_build(name, status)
+      create(:ci_build, name: name, status: status, pipeline: pipeline)
     end
   end
 
@@ -124,32 +138,26 @@ describe Ci::Pipeline, models: true do
 
   describe 'state machine' do
     let(:current) { Time.now.change(usec: 0) }
-    let(:build) { create_build('build1', current, 10) }
-    let(:build_b) { create_build('build2', current, 20) }
-    let(:build_c) { create_build('build3', current + 50, 10) }
+    let(:build) { create_build('build1', 0) }
+    let(:build_b) { create_build('build2', 0) }
+    let(:build_c) { create_build('build3', 0) }
 
     describe '#duration' do
       before do
-        pipeline.update(created_at: current)
-
-        travel_to(current + 5) do
-          pipeline.run
-          pipeline.save
-        end
-
         travel_to(current + 30) do
-          build.success
+          build.run!
+          build.success!
+          build_b.run!
+          build_c.run!
         end
 
         travel_to(current + 40) do
-          build_b.drop
+          build_b.drop!
         end
 
         travel_to(current + 70) do
-          build_c.success
+          build_c.success!
         end
-
-        pipeline.drop
       end
 
       it 'matches sum of builds duration' do
@@ -187,33 +195,24 @@ describe Ci::Pipeline, models: true do
       end
     end
 
-    describe "merge request metrics" do
+    describe 'merge request metrics' do
       let(:project) { FactoryGirl.create :project }
       let(:pipeline) { FactoryGirl.create(:ci_empty_pipeline, status: 'created', project: project, ref: 'master', sha: project.repository.commit('master').id) }
       let!(:merge_request) { create(:merge_request, source_project: project, source_branch: pipeline.ref) }
 
+      before do
+        expect(PipelineMetricsWorker).to receive(:perform_async).with(pipeline.id)
+      end
+
       context 'when transitioning to running' do
-        it 'records the build start time' do
-          time = Time.now
-          Timecop.freeze(time) { build.run }
-
-          expect(merge_request.reload.metrics.latest_build_started_at).to be_within(1.second).of(time)
-        end
-
-        it 'clears the build end time' do
-          build.run
-
-          expect(merge_request.reload.metrics.latest_build_finished_at).to be_nil
+        it 'schedules metrics workers' do
+          pipeline.run
         end
       end
 
       context 'when transitioning to success' do
-        it 'records the build end time' do
-          build.run
-          time = Time.now
-          Timecop.freeze(time) { build.success }
-
-          expect(merge_request.reload.metrics.latest_build_finished_at).to be_within(1.second).of(time)
+        it 'schedules metrics workers' do
+          pipeline.succeed
         end
       end
     end
@@ -450,7 +449,9 @@ describe Ci::Pipeline, models: true do
         context 'when all builds succeed' do
           before do
             build_a.success
-            build_b.success
+
+            # We have to reload build_b as this is in next stage and it gets triggered by PipelineProcessWorker
+            build_b.reload.success
           end
 
           it 'receives a success event once' do

@@ -465,7 +465,7 @@ Parameters:
       "id": 1,
       "state": "active",
       "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
-      "web_url": "http://localhost:3000/u/root"
+      "web_url": "http://localhost:3000/root"
     },
     "author_username": "root"
   },
@@ -482,7 +482,7 @@ Parameters:
       "id": 1,
       "state": "active",
       "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
-      "web_url": "http://localhost:3000/u/root"
+      "web_url": "http://localhost:3000/root"
     },
     "author_username": "john",
     "data": {
@@ -528,7 +528,7 @@ Parameters:
       "id": 1,
       "state": "active",
       "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
-      "web_url": "http://localhost:3000/u/root"
+      "web_url": "http://localhost:3000/root"
     },
     "author_username": "root"
   },
@@ -552,7 +552,7 @@ Parameters:
         "id": 1,
         "state": "active",
         "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
-        "web_url": "http://localhost:3000/u/root"
+        "web_url": "http://localhost:3000/root"
       },
       "created_at": "2015-12-04T10:33:56.698Z",
       "system": false,
@@ -567,7 +567,7 @@ Parameters:
       "id": 1,
       "state": "active",
       "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
-      "web_url": "http://localhost:3000/u/root"
+      "web_url": "http://localhost:3000/root"
     },
     "author_username": "root"
   }
@@ -598,7 +598,7 @@ Parameters:
 | `container_registry_enabled` | boolean | no | Enable container registry for this project |
 | `shared_runners_enabled` | boolean | no | Enable shared runners for this project |
 | `public` | boolean | no | If `true`, the same as setting `visibility_level` to 20 |
-| `visibility_level` | integer | no | See [project visibility level][#project-visibility-level] |
+| `visibility_level` | integer | no | See [project visibility level](#project-visibility-level) |
 | `import_url` | string | no | URL to import repository from |
 | `public_builds` | boolean | no | If `true`, builds can be viewed by non-project-members |
 | `only_allow_merge_if_build_succeeds` | boolean | no | Set whether merge requests can only be merged with successful builds |
@@ -630,7 +630,7 @@ Parameters:
 | `container_registry_enabled` | boolean | no | Enable container registry for this project |
 | `shared_runners_enabled` | boolean | no | Enable shared runners for this project |
 | `public` | boolean | no | If `true`, the same as setting `visibility_level` to 20 |
-| `visibility_level` | integer | no | See [project visibility level][#project-visibility-level] |
+| `visibility_level` | integer | no | See [project visibility level](#project-visibility-level) |
 | `import_url` | string | no | URL to import repository from |
 | `public_builds` | boolean | no | If `true`, builds can be viewed by non-project-members |
 | `only_allow_merge_if_build_succeeds` | boolean | no | Set whether merge requests can only be merged with successful builds |
@@ -661,7 +661,7 @@ Parameters:
 | `container_registry_enabled` | boolean | no | Enable container registry for this project |
 | `shared_runners_enabled` | boolean | no | Enable shared runners for this project |
 | `public` | boolean | no | If `true`, the same as setting `visibility_level` to 20 |
-| `visibility_level` | integer | no | See [project visibility level][#project-visibility-level] |
+| `visibility_level` | integer | no | See [project visibility level](#project-visibility-level) |
 | `import_url` | string | no | URL to import repository from |
 | `public_builds` | boolean | no | If `true`, builds can be viewed by non-project-members |
 | `only_allow_merge_if_build_succeeds` | boolean | no | Set whether merge requests can only be merged with successful builds |
@@ -1139,6 +1139,7 @@ Parameters:
 | `pipeline_events` | boolean | no | Trigger hook on pipeline events |
 | `wiki_events` | boolean | no | Trigger hook on wiki events |
 | `enable_ssl_verification` | boolean | no | Do SSL verification when triggering the hook |
+| `token` | string | no | Secret token to validate received payloads; this will not be returned in the response |
 
 ### Edit project hook
 
@@ -1164,6 +1165,7 @@ Parameters:
 | `pipeline_events` | boolean | no | Trigger hook on pipeline events |
 | `wiki_events` | boolean | no | Trigger hook on wiki events |
 | `enable_ssl_verification` | boolean | no | Do SSL verification when triggering the hook |
+| `token` | string | no | Secret token to validate received payloads; this will not be returned in the response |
 
 ### Delete project hook
 
@@ -1333,8 +1335,6 @@ Parameters:
 
 | Attribute | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `query` (required) - A string contained in the project name
-| `per_page` (optional) - number of projects to return per page
-| `page` (optional) - the page to retrieve
-| `order_by` (optional) - Return requests ordered by `id`, `name`, `created_at` or `last_activity_at` fields
+| `query` | string | yes | A string contained in the project name |
+| `order_by` | string | no | Return requests ordered by `id`, `name`, `created_at` or `last_activity_at` fields |
 | `sort` | string | no | Return requests sorted in `asc` or `desc` order |

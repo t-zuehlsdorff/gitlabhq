@@ -33,21 +33,22 @@
     color: $gl-dark-link-color;
   }
 
-  .text-expander {
-    display: inline-block;
-    background: $gray-light;
-    color: $gl-placeholder-color;
-    padding: 0 5px;
-    cursor: pointer;
-    border: 1px solid $border-gray-dark;
-    border-radius: $border-radius-default;
-    margin-left: 5px;
-    line-height: 1;
+}
 
-    &:hover {
-      background-color: darken($gray-light, 10%);
-      text-decoration: none;
-    }
+.text-expander {
+  display: inline-block;
+  background: $gray-light;
+  color: $gl-placeholder-color;
+  padding: 0 5px;
+  cursor: pointer;
+  border: 1px solid $border-gray-dark;
+  border-radius: $border-radius-default;
+  margin-left: 5px;
+  line-height: 1;
+
+  &:hover {
+    background-color: darken($gray-light, 10%);
+    text-decoration: none;
   }
 }
 
@@ -63,7 +64,8 @@
     display: inline-block;
   }
 
-  .btn-clipboard, .btn-transparent {
+  .btn-clipboard,
+  .btn-transparent {
     padding-left: 0;
     padding-right: 0;
   }
@@ -162,7 +164,8 @@
 .branch-commit {
   color: $gl-gray;
 
-  .commit-id, .commit-row-message {
+  .commit-id,
+  .commit-row-message {
     color: $gl-gray;
   }
 }

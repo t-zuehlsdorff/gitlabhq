@@ -29,7 +29,7 @@ gem 'omniauth-github',        '~> 1.1.1'
 gem 'omniauth-gitlab',        '~> 1.0.0'
 gem 'omniauth-google-oauth2', '~> 0.4.1'
 gem 'omniauth-kerberos',      '~> 0.3.0', group: :kerberos
-gem 'omniauth-saml',          '~> 1.6.0'
+gem 'omniauth-saml',          '~> 1.7.0'
 gem 'omniauth-shibboleth',    '~> 1.2.0'
 gem 'omniauth-twitter',       '~> 1.2.0'
 gem 'omniauth_crowd',         '~> 2.2.0'
@@ -51,7 +51,7 @@ gem 'browser', '~> 2.2'
 
 # Extracting information from a git repository
 # Provide access to Gitlab::Git library
-gem 'gitlab_git', '~> 10.6.8'
+gem 'gitlab_git', '~> 10.7.0'
 
 # LDAP Auth
 # GitLab fork with several improvements to original library. For full list of changes
@@ -117,7 +117,7 @@ gem 'truncato',           '~> 0.7.8'
 gem 'nokogiri', '~> 1.6.7', '>= 1.6.7.2'
 
 # Diffs
-gem 'diffy', '~> 3.0.3'
+gem 'diffy', '~> 3.1.0'
 
 # Application server
 group :unicorn do
@@ -161,6 +161,9 @@ gem 'connection_pool', '~> 2.0'
 # HipChat integration
 gem 'hipchat', '~> 1.5.0'
 
+# JIRA integration
+gem 'jira-ruby', '~> 1.1.2'
+
 # Flowdock integration
 gem 'gitlab-flowdock-git-hook', '~> 1.0.1'
 
@@ -193,7 +196,7 @@ gem 'loofah', '~> 2.0.3'
 gem 'licensee', '~> 8.0.0'
 
 # Protect against bruteforcing
-gem 'rack-attack', '~> 4.3.1'
+gem 'rack-attack', '~> 4.4.1'
 
 # Ace editor
 gem 'ace-rails-ap', '~> 4.1.0'
@@ -262,8 +265,6 @@ group :development do
 
   # thin instead webrick
   gem 'thin', '~> 1.7.0'
-
-  gem 'activerecord_sane_schema_dumper', '0.2'
 end
 
 group :development, :test do
@@ -310,6 +311,8 @@ group :development, :test do
 
   gem 'license_finder', '~> 2.1.0', require: false
   gem 'knapsack', '~> 1.11.0'
+
+  gem 'activerecord_sane_schema_dumper', '0.2'
 end
 
 group :test do
@@ -326,7 +329,7 @@ gem 'newrelic_rpm', '~> 3.16'
 
 gem 'octokit', '~> 4.3.0'
 
-gem 'mail_room', '~> 0.8.1'
+gem 'mail_room', '~> 0.9.0'
 
 gem 'email_reply_parser', '~> 0.5.8'
 

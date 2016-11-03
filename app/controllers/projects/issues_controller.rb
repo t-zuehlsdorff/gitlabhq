@@ -26,7 +26,9 @@ class Projects::IssuesController < Projects::ApplicationController
     @issues = issues_collection
     @issues = @issues.page(params[:page])
 
-    @labels = @project.labels.where(title: params[:label_name])
+    if params[:label_name].present?
+      @labels = LabelsFinder.new(current_user, project_id: @project.id, title: params[:label_name]).execute
+    end
 
     respond_to do |format|
       format.html
@@ -110,7 +112,7 @@ class Projects::IssuesController < Projects::ApplicationController
       end
 
       format.json do
-        render json: @issue.to_json(include: { milestone: {}, assignee: { methods: :avatar_url }, labels: { methods: :text_color } })
+        render json: @issue.to_json(include: { milestone: {}, assignee: { methods: :avatar_url }, labels: { methods: :text_color } }, methods: [:task_status, :task_status_short])
       end
     end
 

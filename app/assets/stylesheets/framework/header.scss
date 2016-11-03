@@ -15,7 +15,8 @@ header {
       margin: 8px 0;
       text-align: center;
 
-      .tanuki-logo, img {
+      .tanuki-logo,
+      img {
         height: 36px;
       }
     }
@@ -48,13 +49,19 @@ header {
         font-size: 18px;
         padding: 0;
         margin: ($header-height - 28) / 2 0;
-        margin-left: 10px;
+        margin-left: 8px;
         height: 28px;
         min-width: 28px;
         line-height: 28px;
         text-align: center;
 
-        &:hover, &:focus, &:active {
+        &.header-user-dropdown-toggle {
+          margin-left: 14px;
+        }
+
+        &:hover,
+        &:focus,
+        &:active {
           background-color: $background-color;
         }
 
@@ -125,7 +132,8 @@ header {
         left: -50%;
       }
 
-      svg, img {
+      svg,
+      img {
         height: 36px;
       }
 
@@ -222,7 +230,8 @@ header {
       margin: 0;
       float: none !important;
 
-      .visible-xs, .visable-sm {
+      .visible-xs,
+      .visible-sm {
         display: table-cell !important;
       }
     }

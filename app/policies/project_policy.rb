@@ -2,11 +2,11 @@ class ProjectPolicy < BasePolicy
   def rules
     team_access!(user)
 
-    owner = user.admin? ||
-            project.owner == user ||
+    owner = project.owner == user ||
             (project.group && project.group.has_owner?(user))
 
-    owner_access! if owner
+    owner_access! if user.admin? || owner
+    team_member_owner_access! if owner
 
     if project.public? || (project.internal? && !user.external?)
       guest_access!
@@ -16,7 +16,7 @@ class ProjectPolicy < BasePolicy
       can! :read_build if project.public_builds?
 
       if project.request_access_enabled &&
-         !(owner || project.team.member?(user) || project_group_member?(user))
+         !(owner || user.admin? || project.team.member?(user) || project_group_member?(user))
         can! :request_access
       end
     end
@@ -135,6 +135,10 @@ class ProjectPolicy < BasePolicy
     can! :destroy_issue
   end
 
+  def team_member_owner_access!
+    team_member_reporter_access!
+  end
+
   # Push abilities on the users team role
   def team_access!(user)
     access = project.team.max_member_access(user.id)
@@ -162,11 +166,13 @@ class ProjectPolicy < BasePolicy
   end
 
   def disabled_features!
+    repository_enabled = project.feature_available?(:repository, user)
+
     unless project.feature_available?(:issues, user)
       cannot!(*named_abilities(:issue))
     end
 
-    unless project.feature_available?(:merge_requests, user)
+    unless project.feature_available?(:merge_requests, user) && repository_enabled
       cannot!(*named_abilities(:merge_request))
     end
 
@@ -183,11 +189,19 @@ class ProjectPolicy < BasePolicy
       cannot!(*named_abilities(:wiki))
     end
 
-    unless project.feature_available?(:builds, user)
+    unless project.feature_available?(:builds, user) && repository_enabled
       cannot!(*named_abilities(:build))
       cannot!(*named_abilities(:pipeline))
       cannot!(*named_abilities(:environment))
       cannot!(*named_abilities(:deployment))
+    end
+
+    unless repository_enabled
+      cannot! :push_code
+      cannot! :push_code_to_protected_branches
+      cannot! :download_code
+      cannot! :fork_project
+      cannot! :read_commit_status
     end
 
     unless project.container_registry_enabled

@@ -1,4 +1,3 @@
-lex
 [v-cloak] {
   display: none;
 }
@@ -13,6 +12,10 @@ lex
   opacity: 1!important;
 
   * {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
     // !important to make sure no style can override this when dragging
     cursor: -webkit-grabbing!important;
     cursor: grabbing!important;
@@ -48,6 +51,10 @@ lex
   }
 }
 
+.boards-app {
+  position: relative;
+}
+
 .boards-app-loading {
   width: 100%;
   font-size: 34px;
@@ -67,6 +74,10 @@ lex
     height: 475px; // Needed for PhantomJS
     height: calc(100vh - 220px);
     min-height: 475px;
+
+    &.is-compact {
+      width: calc(100% - 290px);
+    }
   }
 }
 
@@ -132,7 +143,7 @@ lex
 }
 
 .board-blank-state {
-  height: 100%;
+  height: calc(100% - 49px);
   padding: $gl-padding;
   background-color: #fff;
 }
@@ -185,6 +196,10 @@ lex
     margin-bottom: 5px;
   }
 
+  &.is-active {
+    background-color: $row-hover;
+  }
+
   .label {
     border: 0;
     outline: 0;
@@ -212,6 +227,10 @@ lex
   .label {
     margin-right: 5px;
     font-size: (14px / $issue-boards-font-size) * 1em;
+  }
+
+  .avatar {
+    margin-left: 0;
   }
 }
 
@@ -263,5 +282,50 @@ lex
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
     border-width: 1px 0 1px 1px;
+  }
+}
+
+.issue-boards-sidebar {
+  &.right-sidebar {
+    top: 153px;
+    bottom: 0;
+
+    @media (min-width: $screen-sm-min) {
+      top: 220px;
+    }
+  }
+
+  .issuable-sidebar-header {
+    position: relative;
+  }
+
+  .gutter-toggle {
+    position: absolute;
+    top: 0;
+    bottom: 15px;
+    right: 0;
+    width: 22px;
+    color: $gray-darkest;
+
+    svg {
+      position: absolute;
+      top: 50%;
+      margin-top: (-11px / 2);
+    }
+
+    &:hover {
+      path {
+        fill: $gray-darkest;
+      }
+    }
+  }
+
+  .issuable-header-text {
+    width: 100%;
+    padding-right: 35px;
+
+    > strong {
+      font-weight: 600;
+    }
   }
 }

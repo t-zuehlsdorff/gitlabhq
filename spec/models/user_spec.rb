@@ -15,11 +15,11 @@ describe User, models: true do
 
   describe 'associations' do
     it { is_expected.to have_one(:namespace) }
-    it { is_expected.to have_many(:snippets).class_name('Snippet').dependent(:destroy) }
+    it { is_expected.to have_many(:snippets).dependent(:destroy) }
     it { is_expected.to have_many(:project_members).dependent(:destroy) }
     it { is_expected.to have_many(:groups) }
     it { is_expected.to have_many(:keys).dependent(:destroy) }
-    it { is_expected.to have_many(:events).class_name('Event').dependent(:destroy) }
+    it { is_expected.to have_many(:events).dependent(:destroy) }
     it { is_expected.to have_many(:recent_events).class_name('Event') }
     it { is_expected.to have_many(:issues).dependent(:destroy) }
     it { is_expected.to have_many(:notes).dependent(:destroy) }
@@ -596,6 +596,80 @@ describe User, models: true do
 
     it 'returns users with a matching username regardless of the casing' do
       expect(described_class.search(user.username.upcase)).to eq([user])
+    end
+  end
+
+  describe '.search_with_secondary_emails' do
+    def search_with_secondary_emails(query)
+      described_class.search_with_secondary_emails(query)
+    end
+
+    let!(:user) { create(:user) }
+    let!(:email) { create(:email) }
+
+    it 'returns users with a matching name' do
+      expect(search_with_secondary_emails(user.name)).to eq([user])
+    end
+
+    it 'returns users with a partially matching name' do
+      expect(search_with_secondary_emails(user.name[0..2])).to eq([user])
+    end
+
+    it 'returns users with a matching name regardless of the casing' do
+      expect(search_with_secondary_emails(user.name.upcase)).to eq([user])
+    end
+
+    it 'returns users with a matching email' do
+      expect(search_with_secondary_emails(user.email)).to eq([user])
+    end
+
+    it 'returns users with a partially matching email' do
+      expect(search_with_secondary_emails(user.email[0..2])).to eq([user])
+    end
+
+    it 'returns users with a matching email regardless of the casing' do
+      expect(search_with_secondary_emails(user.email.upcase)).to eq([user])
+    end
+
+    it 'returns users with a matching username' do
+      expect(search_with_secondary_emails(user.username)).to eq([user])
+    end
+
+    it 'returns users with a partially matching username' do
+      expect(search_with_secondary_emails(user.username[0..2])).to eq([user])
+    end
+
+    it 'returns users with a matching username regardless of the casing' do
+      expect(search_with_secondary_emails(user.username.upcase)).to eq([user])
+    end
+
+    it 'returns users with a matching whole secondary email' do
+      expect(search_with_secondary_emails(email.email)).to eq([email.user])
+    end
+
+    it 'returns users with a matching part of secondary email' do
+      expect(search_with_secondary_emails(email.email[1..4])).to eq([email.user])
+    end
+
+    it 'return users with a matching part of secondary email regardless of case' do
+      expect(search_with_secondary_emails(email.email[1..4].upcase)).to eq([email.user])
+      expect(search_with_secondary_emails(email.email[1..4].downcase)).to eq([email.user])
+      expect(search_with_secondary_emails(email.email[1..4].capitalize)).to eq([email.user])
+    end
+
+    it 'returns multiple users with matching secondary emails' do
+      email1 = create(:email, email: '1_testemail@example.com')
+      email2 = create(:email, email: '2_testemail@example.com')
+      email3 = create(:email, email: 'other@email.com')
+      email3.user.update_attributes!(email: 'another@mail.com')
+
+      expect(
+        search_with_secondary_emails('testemail@example.com').map(&:id)
+      ).to include(email1.user.id, email2.user.id)
+
+      expect(
+        search_with_secondary_emails('testemail@example.com').map(&:id)
+      ).not_to include(email3.user.id)
     end
   end
 

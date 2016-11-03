@@ -7,19 +7,19 @@ module Ci
 
     self.table_name = 'ci_commits'
 
-    belongs_to :project, class_name: '::Project', foreign_key: :gl_project_id
+    belongs_to :project, foreign_key: :gl_project_id
     belongs_to :user
 
     has_many :statuses, class_name: 'CommitStatus', foreign_key: :commit_id
-    has_many :builds, class_name: 'Ci::Build', foreign_key: :commit_id
-    has_many :trigger_requests, dependent: :destroy, class_name: 'Ci::TriggerRequest', foreign_key: :commit_id
+    has_many :builds, foreign_key: :commit_id
+    has_many :trigger_requests, dependent: :destroy, foreign_key: :commit_id
 
     validates_presence_of :sha, unless: :importing?
     validates_presence_of :ref, unless: :importing?
     validates_presence_of :status, unless: :importing?
     validate :valid_commit_sha, unless: :importing?
 
-    after_save :keep_around_commits, unless: :importing?
+    after_create :keep_around_commits, unless: :importing?
 
     delegate :stages, to: :statuses
 
@@ -30,24 +30,28 @@ module Ci
       end
 
       event :run do
-        transition any => :running
+        transition any - [:running] => :running
       end
 
       event :skip do
-        transition any => :skipped
+        transition any - [:skipped] => :skipped
       end
 
       event :drop do
-        transition any => :failed
+        transition any - [:failed] => :failed
       end
 
       event :succeed do
-        transition any => :success
+        transition any - [:success] => :success
       end
 
       event :cancel do
-        transition any => :canceled
+        transition any - [:canceled] => :canceled
       end
+
+      # IMPORTANT
+      # Do not add any operations to this state_machine
+      # Create a separate worker for each new operation
 
       before_transition [:created, :pending] => :running do |pipeline|
         pipeline.started_at = Time.now
@@ -55,20 +59,15 @@ module Ci
 
       before_transition any => [:success, :failed, :canceled] do |pipeline|
         pipeline.finished_at = Time.now
-      end
-
-      before_transition do |pipeline|
         pipeline.update_duration
       end
 
       after_transition [:created, :pending] => :running do |pipeline|
-        MergeRequest::Metrics.where(merge_request_id: pipeline.merge_requests.map(&:id)).
-          update_all(latest_build_started_at: pipeline.started_at, latest_build_finished_at: nil)
+        pipeline.run_after_commit { PipelineMetricsWorker.perform_async(id) }
       end
 
       after_transition any => [:success] do |pipeline|
-        MergeRequest::Metrics.where(merge_request_id: pipeline.merge_requests.map(&:id)).
-          update_all(latest_build_finished_at: pipeline.finished_at)
+        pipeline.run_after_commit { PipelineMetricsWorker.perform_async(id) }
       end
 
       after_transition [:created, :pending, :running] => :success do |pipeline|
@@ -152,7 +151,7 @@ module Ci
 
     def retryable?
       builds.latest.any? do |build|
-        build.failed? && build.retryable?
+        (build.failed? || build.canceled?) && build.retryable?
       end
     end
 
@@ -261,7 +260,7 @@ module Ci
     end
 
     def update_status
-      with_lock do
+      Gitlab::OptimisticLocking.retry_lock(self) do
         case latest_builds_status
         when 'pending' then enqueue
         when 'running' then run

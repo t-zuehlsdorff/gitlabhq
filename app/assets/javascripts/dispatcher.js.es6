@@ -1,3 +1,4 @@
+/* eslint-disable */
 (function() {
   var Dispatcher;
 
@@ -50,7 +51,7 @@
         case 'projects:milestones:new':
         case 'projects:milestones:edit':
           new ZenMode();
-          new DueDateSelect();
+          new gl.DueDateSelectors();
           new GLForm($('.milestone-form'));
           break;
         case 'groups:milestones:new':
@@ -101,9 +102,6 @@
           new ZenMode();
           new MergedButtons();
           break;
-        case "projects:merge_requests:conflicts":
-          window.mcui = new MergeConflictResolver()
-          break;
         case 'projects:merge_requests:index':
           shortcut_handler = new ShortcutsNavigation();
           Issuable.init();
@@ -119,6 +117,9 @@
           new Diff();
           new ZenMode();
           shortcut_handler = new ShortcutsNavigation();
+          break;
+        case 'projects:commit:builds':
+          new gl.Pipelines();
           break;
         case 'projects:commits:show':
         case 'projects:activity':
@@ -171,6 +172,8 @@
           shortcut_handler = new ShortcutsNavigation();
           new ShortcutsBlob(true);
           break;
+        case 'groups:labels:new':
+        case 'groups:labels:edit':
         case 'projects:labels:new':
         case 'projects:labels:edit':
           new Labels();

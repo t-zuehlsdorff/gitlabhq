@@ -28,7 +28,8 @@ ul.notes {
     }
   }
 
-  .note-created-ago, .note-updated-at {
+  .note-created-ago,
+  .note-updated-at {
     white-space: nowrap;
   }
 
@@ -103,11 +104,6 @@ ul.notes {
       .js-awards-block {
         padding: 2px;
         margin-top: 10px;
-      }
-
-      .award-control {
-        font-size: 13px;
-        padding: 2px 5px;
       }
     }
 
@@ -458,7 +454,7 @@ ul.notes {
 .discussion-next-btn {
   svg {
     margin: 0;
-    
+
     path {
       fill: $gray-darkest;
     }

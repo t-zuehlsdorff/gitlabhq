@@ -107,7 +107,7 @@
                   = dropdown_content do
                     .js-due-date-calendar
 
-      - if issuable.project.labels.any?
+      - if @labels && @labels.any?
         - selected_labels = issuable.labels
         .block.labels
           .sidebar-collapsed-icon.js-sidebar-labels-tooltip{ title: issuable_labels_tooltip(issuable.labels_array), data: { placement: "left", container: "body" } }
@@ -171,5 +171,5 @@
       new LabelsSelect();
       new IssuableContext('#{escape_javascript(current_user.to_json(only: [:username, :id, :name]))}');
       new Subscription('.subscription')
-      new DueDateSelect();
+      new gl.DueDateSelectors();
       sidebar = new Sidebar();

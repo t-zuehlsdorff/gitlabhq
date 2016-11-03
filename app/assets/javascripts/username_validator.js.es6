@@ -1,3 +1,4 @@
+/* eslint-disable */
 ((global) => {
   const debounceTimeoutDuration = 1000;
   const invalidInputClass = 'gl-field-error-outline';
@@ -76,7 +77,7 @@
         this.renderState();
         return $.ajax({
           type: 'GET',
-          url: `/u/${username}/exists`,
+          url: `/users/${username}/exists`,
           dataType: 'json',
           success: (res) => this.setAvailabilityState(res.exists)
         });

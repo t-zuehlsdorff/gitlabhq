@@ -288,7 +288,7 @@ Example response:
 ```json
 {
    "author" : {
-      "web_url" : "https://gitlab.example.com/u/thedude",
+      "web_url" : "https://gitlab.example.com/thedude",
       "avatar_url" : "https://gitlab.example.com/uploads/user/avatar/28/The-Big-Lebowski-400-400.png",
       "username" : "thedude",
       "state" : "active",
@@ -319,7 +319,7 @@ GET /projects/:id/repository/commits/:sha/statuses
 | --------- | ---- | -------- | ----------- |
 | `id`      | integer/string | yes | The ID of a project or NAMESPACE/PROJECT_NAME owned by the authenticated user
 | `sha`     | string  | yes | The commit SHA
-| `ref_name`| string  | no  | The name of a repository branch or tag or, if not given, the default branch
+| `ref`     | string  | no  | The name of a repository branch or tag or, if not given, the default branch
 | `stage`   | string  | no  | Filter by [build stage](../ci/yaml/README.md#stages), e.g., `test`
 | `name`    | string  | no  | Filter by [job name](../ci/yaml/README.md#jobs), e.g., `bundler:audit`
 | `all`     | boolean | no  | Return all statuses, not only the latest ones
@@ -343,7 +343,7 @@ Example response:
       "author" : {
          "username" : "thedude",
          "state" : "active",
-         "web_url" : "https://gitlab.example.com/u/thedude",
+         "web_url" : "https://gitlab.example.com/thedude",
          "avatar_url" : "https://gitlab.example.com/uploads/user/avatar/28/The-Big-Lebowski-400-400.png",
          "id" : 28,
          "name" : "Jeff Lebowski"
@@ -370,7 +370,7 @@ Example response:
          "id" : 28,
          "name" : "Jeff Lebowski",
          "username" : "thedude",
-         "web_url" : "https://gitlab.example.com/u/thedude",
+         "web_url" : "https://gitlab.example.com/thedude",
          "state" : "active",
          "avatar_url" : "https://gitlab.example.com/uploads/user/avatar/28/The-Big-Lebowski-400-400.png"
       },
@@ -408,7 +408,7 @@ Example response:
 ```json
 {
    "author" : {
-      "web_url" : "https://gitlab.example.com/u/thedude",
+      "web_url" : "https://gitlab.example.com/thedude",
       "name" : "Jeff Lebowski",
       "avatar_url" : "https://gitlab.example.com/uploads/user/avatar/28/The-Big-Lebowski-400-400.png",
       "username" : "thedude",
