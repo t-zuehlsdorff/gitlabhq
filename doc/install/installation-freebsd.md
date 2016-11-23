@@ -64,6 +64,14 @@ The current default version of PostgreSQL in the Portstree is 9.3 and is therefo
     # If you want newer versions change them appropriately to: postgresql94-server, postgresql94-server, etc.
     pkg install postgresql93-server postgresql93-contrib
 
+    # NOTE: When running in a jail, you must add the following line to file "/etc/sysctl.conf" of the *host*:
+    security.jail.sysvipc_allowed=1
+    # If the jail is already running, execute the following on the jail's host:
+    jail -m jid=<jail_id> allow.sysvipc=1
+    # Likewise, if running in a FreeNAS jail, open Advanced Configuration for the specific
+    # Gitlab jail and append the following to any existing "Sysctls":
+    allow.sysvipc=1
+
     # allow postgresql to start; also init and start it
     sysrc postgresql_enable=YES
     service postgresql initdb
