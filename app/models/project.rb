@@ -163,6 +163,7 @@ class Project < ActiveRecord::Base
   delegate :name, to: :owner, allow_nil: true, prefix: true
   delegate :members, to: :team, prefix: true
   delegate :add_user, to: :team
+  delegate :add_guest, :add_reporter, :add_developer, :add_master, to: :team
 
   # Validations
   validates :creator, presence: true, on: :create
@@ -1086,7 +1087,7 @@ class Project < ActiveRecord::Base
                                         "refs/heads/#{branch}",
                                         force: true)
     repository.copy_gitattributes(branch)
-    repository.expire_avatar_cache(branch)
+    repository.expire_avatar_cache
     reload_default_branch
   end
 

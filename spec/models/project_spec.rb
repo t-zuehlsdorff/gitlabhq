@@ -243,6 +243,13 @@ describe Project, models: true do
     it { is_expected.to respond_to(:path_with_namespace) }
   end
 
+  describe 'delegation' do
+    it { is_expected.to delegate_method(:add_guest).to(:team) }
+    it { is_expected.to delegate_method(:add_reporter).to(:team) }
+    it { is_expected.to delegate_method(:add_developer).to(:team) }
+    it { is_expected.to delegate_method(:add_master).to(:team) }
+  end
+
   describe '#name_with_namespace' do
     let(:project) { build_stubbed(:empty_project) }
 
@@ -1572,7 +1579,7 @@ describe Project, models: true do
     end
 
     it 'expires the avatar cache' do
-      expect(project.repository).to receive(:expire_avatar_cache).with(project.default_branch)
+      expect(project.repository).to receive(:expire_avatar_cache)
       project.change_head(project.default_branch)
     end
 
