@@ -128,9 +128,7 @@ module API
     end
 
     def find_project_issue(id)
-      issue = user_project.issues.find(id)
-      not_found! unless can?(current_user, :read_issue, issue)
-      issue
+      IssuesFinder.new(current_user, project_id: user_project.id).find(id)
     end
 
     def paginate(relation)
@@ -143,6 +141,10 @@ module API
       unauthorized! unless current_user
     end
 
+    def authenticate_non_get!
+      authenticate! unless %w[GET HEAD].include?(route.route_method)
+    end
+
     def authenticate_by_gitlab_shell_token!
       input = params['secret_token'].try(:chomp)
       unless Devise.secure_compare(secret_token, input)
@@ -151,6 +153,7 @@ module API
     end
 
     def authenticated_as_admin!
+      authenticate!
       forbidden! unless current_user.is_admin?
     end
 
@@ -196,20 +199,6 @@ module API
         end
       end
       ActionController::Parameters.new(attrs).permit!
-    end
-
-    # Helper method for validating all labels against its names
-    def validate_label_params(params)
-      errors = {}
-
-      params[:labels].to_s.split(',').each do |label_name|
-        label = available_labels.find_or_initialize_by(title: label_name.strip)
-        next if label.valid?
-
-        errors[label.title] = label.errors
-      end
-
-      errors
     end
 
     # Checks the occurrences of datetime attributes, each attribute if present in the params hash must be in ISO 8601
@@ -324,11 +313,6 @@ module API
     # Projects helpers
 
     def filter_projects(projects)
-      # If the archived parameter is passed, limit results accordingly
-      if params[:archived].present?
-        projects = projects.where(archived: to_boolean(params[:archived]))
-      end
-
       if params[:search].present?
         projects = projects.search(params[:search])
       end
@@ -337,25 +321,8 @@ module API
         projects = projects.search_by_visibility(params[:visibility])
       end
 
-      projects.reorder(project_order_by => project_sort)
-    end
-
-    def project_order_by
-      order_fields = %w(id name path created_at updated_at last_activity_at)
-
-      if order_fields.include?(params['order_by'])
-        params['order_by']
-      else
-        'created_at'
-      end
-    end
-
-    def project_sort
-      if params["sort"] == 'asc'
-        :asc
-      else
-        :desc
-      end
+      projects = projects.where(archived: params[:archived])
+      projects.reorder(params[:order_by] => params[:sort])
     end
 
     # file helpers
