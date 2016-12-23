@@ -3,7 +3,7 @@
  *
  */
 .mr-state-widget {
-  background: $background-color;
+  background: $gray-light;
   color: $gl-gray;
   border: 1px solid $border-color;
   border-radius: 2px;
@@ -21,10 +21,18 @@
       display: inline-block;
       float: left;
 
+      .btn-success.dropdown-toggle .fa {
+        color: inherit;
+      }
+
+      .btn-success.dropdown-toggle:disabled {
+        background-color: $gl-success;
+      }
+
       .accept_merge_request {
         &.ci-pending,
         &.ci-running {
-          @include btn-orange;
+          @include btn-blue;
         }
 
         &.ci-skipped,
@@ -47,6 +55,7 @@
 
       &.right {
         float: right;
+        padding-right: 0;
 
         a {
           color: $gl-gray;
@@ -60,7 +69,8 @@
   }
 
   .ci_widget {
-    border-bottom: 1px solid $widget-inner-border;
+    border-bottom: 1px solid $well-inner-border;
+    color: $gl-gray;
 
     svg {
       margin-right: 4px;
@@ -69,47 +79,11 @@
       overflow: visible;
     }
 
-    &.ci-success {
-      color: $gl-success;
-
-      a.environment,
-      a.pipeline {
-        color: inherit;
-      }
-    }
-
     &.ci-success_with_warnings {
-      color: $gl-success;
 
       i {
         color: $gl-warning;
       }
-    }
-
-    &.ci-skipped {
-      background-color: #eee;
-      color: #888;
-    }
-
-    &.ci-pending {
-      color: $gl-warning;
-    }
-
-    &.ci-running {
-      color: $blue-normal;
-    }
-
-    &.ci-failed,
-    &.ci-error {
-      color: $gl-danger;
-    }
-
-    &.ci-canceled {
-      color: $gl-gray;
-    }
-
-    a.monospace {
-      color: inherit;
     }
   }
 
@@ -120,7 +94,7 @@
   }
 
   .normal {
-    color: #5c5d5e;
+    color: $gl-text-color-dark;
   }
 
   .js-deployment-link {
@@ -130,7 +104,7 @@
   .mr-widget-body {
     h4 {
       font-weight: 600;
-      font-size: 17px;
+      font-size: 16px;
       margin: 5px 0;
       color: $gl-gray-dark;
 
@@ -150,7 +124,7 @@
 
     @media (max-width: $screen-xs-max) {
       h4 {
-        font-size: 15px;
+        font-size: 14px;
       }
 
       p {
@@ -161,6 +135,11 @@
       .btn-group,
       .accept-action {
         margin-bottom: 4px;
+      }
+
+      .btn-grouped {
+        float: none;
+        margin-right: 0;
       }
 
       .accept-action {
@@ -177,7 +156,7 @@
   }
 
   .mr-widget-footer {
-    border-top: 1px solid #eee;
+    border-top: 1px solid $gray-darker;
   }
 
   .ci-coverage {
@@ -388,7 +367,7 @@
 
     th {
       background-color: $white-light;
-      color: $gl-placeholder-color;
+      color: $gl-gray-light;
     }
   }
 }
@@ -404,7 +383,7 @@
 }
 
 .mr-version-controls {
-  background: $background-color;
+  background: $gray-light;
   border-bottom: 1px solid $border-color;
   color: $gl-text-color;
 

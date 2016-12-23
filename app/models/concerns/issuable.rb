@@ -41,7 +41,7 @@ module Issuable
     has_one :metrics
 
     validates :author, presence: true
-    validates :title, presence: true, length: { within: 0..255 }
+    validates :title, presence: true, length: { maximum: 255 }
 
     scope :authored, ->(user) { where(author_id: user) }
     scope :assigned_to, ->(u) { where(assignee_id: u.id)}
@@ -215,7 +215,7 @@ module Issuable
     end
   end
 
-  def subscribed_without_subscriptions?(user)
+  def subscribed_without_subscriptions?(user, project)
     participants(user).include?(user)
   end
 
@@ -249,6 +249,17 @@ module Issuable
   #   issuable.to_ability_name # => "merge_request"
   def to_ability_name
     self.class.to_ability_name
+  end
+
+  # Convert this Issuable class name to a format usable by notifications.
+  #
+  # Examples:
+  #
+  #   issuable.class           # => MergeRequest
+  #   issuable.human_class_name # => "merge request"
+
+  def human_class_name
+    @human_class_name ||= self.class.name.titleize.downcase
   end
 
   # Returns a Hash of attributes to be used for Twitter card metadata

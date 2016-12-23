@@ -1,6 +1,6 @@
 class Projects::PipelinesController < Projects::ApplicationController
   before_action :pipeline, except: [:index, :new, :create]
-  before_action :commit, only: [:show]
+  before_action :commit, only: [:show, :builds]
   before_action :authorize_read_pipeline!
   before_action :authorize_create_pipeline!, only: [:new, :create]
   before_action :authorize_update_pipeline!, only: [:retry, :cancel]
@@ -8,6 +8,7 @@ class Projects::PipelinesController < Projects::ApplicationController
   def index
     @scope = params[:scope]
     @pipelines = PipelinesFinder.new(project).execute(scope: @scope).page(params[:page]).per(30)
+    @pipelines = @pipelines.includes(project: :namespace)
 
     @running_or_pending_count = PipelinesFinder.new(project).execute(scope: 'running').count
     @pipelines_count = PipelinesFinder.new(project).execute.count
@@ -18,7 +19,9 @@ class Projects::PipelinesController < Projects::ApplicationController
   end
 
   def create
-    @pipeline = Ci::CreatePipelineService.new(project, current_user, create_params).execute(ignore_skip_ci: true, save_on_errors: false)
+    @pipeline = Ci::CreatePipelineService
+      .new(project, current_user, create_params)
+      .execute(ignore_skip_ci: true, save_on_errors: false)
     unless @pipeline.persisted?
       render 'new'
       return
@@ -28,6 +31,23 @@ class Projects::PipelinesController < Projects::ApplicationController
   end
 
   def show
+  end
+
+  def builds
+    respond_to do |format|
+      format.html do
+        render 'show'
+      end
+    end
+  end
+
+  def stage
+    @stage = pipeline.stage(params[:stage])
+    return not_found unless @stage
+
+    respond_to do |format|
+      format.json { render json: { html: view_to_html_string('projects/pipelines/_stage') } }
+    end
   end
 
   def retry

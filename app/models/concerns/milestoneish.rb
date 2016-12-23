@@ -1,17 +1,22 @@
 module Milestoneish
-  def closed_items_count(user = nil)
-    issues_visible_to_user(user).closed.size + merge_requests.closed_and_merged.size
+  def closed_items_count(user)
+    memoize_per_user(user, :closed_items_count) do
+      (count_issues_by_state(user)['closed'] || 0) + merge_requests.closed_and_merged.size
+    end
   end
 
-  def total_items_count(user = nil)
-    issues_visible_to_user(user).size + merge_requests.size
+  def total_items_count(user)
+    memoize_per_user(user, :total_items_count) do
+      issues_count = count_issues_by_state(user).values.sum
+      issues_count + merge_requests.size
+    end
   end
 
-  def complete?(user = nil)
+  def complete?(user)
     total_items_count(user) > 0 && total_items_count(user) == closed_items_count(user)
   end
 
-  def percent_complete(user = nil)
+  def percent_complete(user)
     ((closed_items_count(user) * 100) / total_items_count(user)).abs
   rescue ZeroDivisionError
     0
@@ -23,7 +28,48 @@ module Milestoneish
     (due_date - Date.today).to_i
   end
 
-  def issues_visible_to_user(user = nil)
-    issues.visible_to_user(user)
+  def elapsed_days
+    return 0 if !start_date || start_date.future?
+
+    (Date.today - start_date).to_i
+  end
+
+  def issues_visible_to_user(user)
+    memoize_per_user(user, :issues_visible_to_user) do
+      params = try(:project_id) ? { project_id: project_id } : {}
+      IssuesFinder.new(user, params).execute.where(milestone_id: milestoneish_ids)
+    end
+  end
+
+  def upcoming?
+    start_date && start_date.future?
+  end
+
+  def expires_at
+    if due_date
+      if due_date.past?
+        "expired on #{due_date.to_s(:medium)}"
+      else
+        "expires on #{due_date.to_s(:medium)}"
+      end
+    end
+  end
+
+  def expired?
+    due_date && due_date.past?
+  end
+
+  private
+
+  def count_issues_by_state(user)
+    memoize_per_user(user, :count_issues_by_state) do
+      issues_visible_to_user(user).reorder(nil).group(:state).count
+    end
+  end
+
+  def memoize_per_user(user, method_name)
+    @memoized ||= {}
+    @memoized[method_name] ||= {}
+    @memoized[method_name][user.try!(:id)] ||= yield
   end
 end

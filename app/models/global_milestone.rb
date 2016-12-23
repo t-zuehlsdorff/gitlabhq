@@ -24,30 +24,24 @@ class GlobalMilestone
     @first_milestone = milestones.find {|m| m.description.present? } || milestones.first
   end
 
+  def milestoneish_ids
+    milestones.select(:id)
+  end
+
   def safe_title
     @title.to_slug.normalize.to_s
   end
 
-  def expired?
-    if due_date
-      due_date.past?
-    else
-      false
-    end
-  end
-
   def projects
-    @projects ||= Project.for_milestones(milestones.select(:id))
+    @projects ||= Project.for_milestones(milestoneish_ids)
   end
 
   def state
-    state = milestones.map { |milestone| milestone.state }
-
-    if state.count('closed') == state.size
-      'closed'
-    else
-      'active'
+    milestones.each do |milestone|
+      return 'active' if milestone.state != 'closed'
     end
+
+    'closed'
   end
 
   def active?
@@ -59,11 +53,11 @@ class GlobalMilestone
   end
 
   def issues
-    @issues ||= Issue.of_milestones(milestones.select(:id)).includes(:project, :assignee, :labels)
+    @issues ||= Issue.of_milestones(milestoneish_ids).includes(:project, :assignee, :labels)
   end
 
   def merge_requests
-    @merge_requests ||= MergeRequest.of_milestones(milestones.select(:id)).includes(:target_project, :assignee, :labels)
+    @merge_requests ||= MergeRequest.of_milestones(milestoneish_ids).includes(:target_project, :assignee, :labels)
   end
 
   def participants
@@ -81,18 +75,15 @@ class GlobalMilestone
     @due_date =
       if @milestones.all? { |x| x.due_date == @milestones.first.due_date }
         @milestones.first.due_date
-      else
-        nil
       end
   end
 
-  def expires_at
-    if due_date
-      if due_date.past?
-        "expired on #{due_date.to_s(:medium)}"
-      else
-        "expires on #{due_date.to_s(:medium)}"
+  def start_date
+    return @start_date if defined?(@start_date)
+
+    @start_date =
+      if @milestones.all? { |x| x.start_date == @milestones.first.start_date }
+        @milestones.first.start_date
       end
-    end
   end
 end
