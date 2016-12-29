@@ -94,7 +94,7 @@ module Ci
         .group(:ref, :sha)
 
       relation = ref ? where(ref: ref) : self
-      relation.where(id: max_id).order(id: :desc)
+      relation.where(id: max_id)
     end
 
     def self.latest_status(ref = nil)
@@ -102,7 +102,7 @@ module Ci
     end
 
     def self.latest_successful_for(ref)
-      success.latest(ref).first
+      success.latest(ref).order(id: :desc).first
     end
 
     def self.truncate_sha(sha)
