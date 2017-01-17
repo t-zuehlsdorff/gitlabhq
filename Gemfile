@@ -99,18 +99,19 @@ gem 'unf', '~> 0.1.4'
 gem 'seed-fu', '~> 2.3.5'
 
 # Markdown and HTML processing
-gem 'html-pipeline',      '~> 1.11.0'
-gem 'deckar01-task_list', '1.0.6', require: 'task_list/railtie'
-gem 'gitlab-markup',      '~> 1.5.1'
-gem 'redcarpet',          '~> 3.3.3'
-gem 'RedCloth',           '~> 4.3.2'
-gem 'rdoc',               '~> 4.2'
-gem 'org-ruby',           '~> 0.9.12'
-gem 'creole',             '~> 0.5.0'
-gem 'wikicloth',          '0.8.1'
-gem 'asciidoctor',        '~> 1.5.2'
-gem 'rouge',              '~> 2.0'
-gem 'truncato',           '~> 0.7.8'
+gem 'html-pipeline',        '~> 1.11.0'
+gem 'deckar01-task_list',   '1.0.6', require: 'task_list/railtie'
+gem 'gitlab-markup',        '~> 1.5.1'
+gem 'redcarpet',            '~> 3.3.3'
+gem 'RedCloth',             '~> 4.3.2'
+gem 'rdoc',                 '~> 4.2'
+gem 'org-ruby',             '~> 0.9.12'
+gem 'creole',               '~> 0.5.0'
+gem 'wikicloth',            '0.8.1'
+gem 'asciidoctor',          '~> 1.5.2'
+gem 'asciidoctor-plantuml', '0.0.6'
+gem 'rouge',                '~> 2.0'
+gem 'truncato',             '~> 0.7.8'
 
 # See https://groups.google.com/forum/#!topic/ruby-security-ann/aSbgDiwb24s
 # and https://groups.google.com/forum/#!topic/ruby-security-ann/Dy7YiKb_pMM
@@ -218,7 +219,7 @@ gem 'oj', '~> 2.17.4'
 gem 'chronic', '~> 0.10.2'
 gem 'chronic_duration', '~> 0.10.6'
 
-gem 'sass-rails', '~> 5.0.6'
+gem 'sassc-rails', '~> 1.3.0'
 gem 'coffee-rails', '~> 4.1.0'
 gem 'uglifier', '~> 2.7.2'
 gem 'gitlab-turbolinks-classic', '~> 2.5', '>= 2.5.6'
@@ -254,7 +255,6 @@ group :development do
   gem 'brakeman', '~> 3.3.0', require: false
 
   gem 'letter_opener_web', '~> 1.3.0'
-  gem 'rerun', '~> 0.11.0'
   gem 'bullet', '~> 5.2.0', require: false
   gem 'rblineprof', '~> 0.3.6', platform: :mri, require: false
   gem 'web-console', '~> 2.0'
@@ -285,7 +285,7 @@ group :development, :test do
   gem 'minitest', '~> 5.7.0'
 
   # Generate Fake data
-  gem 'ffaker', '~> 2.0.0'
+  gem 'ffaker', '~> 2.4'
 
   gem 'capybara',            '~> 2.6.2'
   gem 'capybara-screenshot', '~> 1.0.0'
