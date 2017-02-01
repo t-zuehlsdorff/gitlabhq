@@ -42,7 +42,7 @@ describe Note, models: true do
     context 'when noteable and note project differ' do
       subject do
         build(:note, noteable: build_stubbed(:issue),
-                     project: build_stubbed(:project))
+                     project: build_stubbed(:empty_project))
       end
 
       it { is_expected.to be_invalid }
@@ -93,8 +93,8 @@ describe Note, models: true do
 
   describe 'authorization' do
     before do
-      @p1 = create(:project)
-      @p2 = create(:project)
+      @p1 = create(:empty_project)
+      @p2 = create(:empty_project)
       @u1 = create(:user)
       @u2 = create(:user)
       @u3 = create(:user)
@@ -138,7 +138,7 @@ describe Note, models: true do
   it_behaves_like 'an editable mentionable' do
     subject { create :note, noteable: issue, project: issue.project }
 
-    let(:issue) { create :issue }
+    let(:issue) { create(:issue, project: create(:project, :repository)) }
     let(:backref_text) { issue.gfm_reference }
     let(:set_mentionable_text) { ->(txt) { subject.note = txt } }
   end
@@ -191,10 +191,10 @@ describe Note, models: true do
 
   describe "cross_reference_not_visible_for?" do
     let(:private_user)    { create(:user) }
-    let(:private_project) { create(:project, namespace: private_user.namespace).tap { |p| p.team << [private_user, :master] } }
+    let(:private_project) { create(:empty_project, namespace: private_user.namespace) { |p| p.team << [private_user, :master] } }
     let(:private_issue)   { create(:issue, project: private_project) }
 
-    let(:ext_proj)  { create(:project, :public) }
+    let(:ext_proj)  { create(:empty_project, :public) }
     let(:ext_issue) { create(:issue, project: ext_proj) }
 
     let(:note) do
@@ -237,7 +237,7 @@ describe Note, models: true do
 
   describe '#participants' do
     it 'includes the note author' do
-      project = create(:project, :public)
+      project = create(:empty_project, :public)
       issue = create(:issue, project: project)
       note = create(:note_on_issue, noteable: issue, project: project)
 
