@@ -1,6 +1,5 @@
 /* eslint-disable func-names, space-before-function-paren, no-var, one-var, one-var-declaration-per-line, prefer-rest-params, max-len, vars-on-top, wrap-iife, no-unused-vars, quotes, no-shadow, no-cond-assign, prefer-arrow-callback, no-return-assign, no-else-return, camelcase, comma-dangle, no-lonely-if, guard-for-in, no-restricted-syntax, consistent-return, prefer-template, no-param-reassign, no-loop-func, no-mixed-operators */
 /* global fuzzaldrinPlus */
-/* global Turbolinks */
 
 (function() {
   var GitLabDropdown, GitLabDropdownFilter, GitLabDropdownRemote,
@@ -249,7 +248,7 @@
                 _this.fullData = data;
                 _this.parseData(_this.fullData);
                 _this.focusTextInput();
-                if (_this.options.filterable && _this.filter && _this.filter.input && _this.filter.input.val().trim() !== '') {
+                if (_this.options.filterable && _this.filter && _this.filter.input && _this.filter.input.val() && _this.filter.input.val().trim() !== '') {
                   return _this.filter.input.trigger('input');
                 }
               };
@@ -438,7 +437,7 @@
       }
     };
 
-    GitLabDropdown.prototype.opened = function() {
+    GitLabDropdown.prototype.opened = function(e) {
       var contentHtml;
       this.resetRows();
       this.addArrowKeyEvent();
@@ -456,6 +455,10 @@
 
       if (this.options.showMenuAbove) {
         this.positionMenuAbove();
+      }
+
+      if (this.options.opened) {
+        this.options.opened.call(this, e);
       }
 
       return this.dropdown.trigger('shown.gl.dropdown');
@@ -723,7 +726,7 @@
       if ($el.length) {
         var href = $el.attr('href');
         if (href && href !== '#') {
-          Turbolinks.visit(href);
+          gl.utils.visitUrl(href);
         } else {
           $el.first().trigger('click');
         }

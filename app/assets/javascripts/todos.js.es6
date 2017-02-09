@@ -1,6 +1,5 @@
 /* eslint-disable class-methods-use-this, no-new, func-names, prefer-template, no-unneeded-ternary, object-shorthand, space-before-function-paren, comma-dangle, quote-props, consistent-return, no-else-return, no-param-reassign, max-len */
 /* global UsersSelect */
-/* global Turbolinks */
 
 ((global) => {
   class Todos {
@@ -34,7 +33,7 @@
 
       $('form.filter-form').on('submit', function (event) {
         event.preventDefault();
-        Turbolinks.visit(this.action + '&' + $(this).serialize());
+        gl.utils.visitUrl(this.action + '&' + $(this).serialize());
       });
     }
 
@@ -142,21 +141,33 @@
           };
           url = gl.utils.mergeUrlParams(pageParams, url);
         }
-        return Turbolinks.visit(url);
+        return gl.utils.visitUrl(url);
       }
     }
 
     goToTodoUrl(e) {
-      const todoLink = $(this).data('url');
+      const todoLink = this.dataset.url;
+      let targetLink = e.target.getAttribute('href');
+
+      if (e.target.tagName === 'IMG') { // See if clicked target was Avatar
+        targetLink = e.target.parentElement.getAttribute('href'); // Parent of Avatar is link
+      }
+
       if (!todoLink) {
         return;
       }
-      // Allow Meta-Click or Mouse3-click to open in a new tab
-      if (e.metaKey || e.which === 2) {
+
+      if (gl.utils.isMetaClick(e)) {
         e.preventDefault();
-        return window.open(todoLink, '_blank');
+        // Meta-Click on username leads to different URL than todoLink.
+        // Turbolinks can resolve that URL, but window.open requires URL manually.
+        if (targetLink !== todoLink) {
+          return window.open(targetLink, '_blank');
+        } else {
+          return window.open(todoLink, '_blank');
+        }
       } else {
-        return Turbolinks.visit(todoLink);
+        return gl.utils.visitUrl(todoLink);
       }
     }
   }

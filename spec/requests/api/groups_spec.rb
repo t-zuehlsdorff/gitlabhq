@@ -179,6 +179,7 @@ describe API::Groups, api: true  do
         expect(json_response['request_access_enabled']).to eq(group1.request_access_enabled)
         expect(json_response['full_name']).to eq(group1.full_name)
         expect(json_response['full_path']).to eq(group1.full_path)
+        expect(json_response['parent_id']).to eq(group1.parent_id)
         expect(json_response['projects']).to be_an Array
         expect(json_response['projects'].length).to eq(2)
         expect(json_response['shared_projects']).to be_an Array
@@ -326,7 +327,7 @@ describe API::Groups, api: true  do
         expect(response).to have_http_status(404)
       end
 
-      it "should only return projects to which user has access" do
+      it "only returns projects to which user has access" do
         project3.team << [user3, :developer]
 
         get api("/groups/#{group1.id}/projects", user3)
@@ -338,7 +339,7 @@ describe API::Groups, api: true  do
     end
 
     context "when authenticated as admin" do
-      it "should return any existing group" do
+      it "returns any existing group" do
         get api("/groups/#{group2.id}/projects", admin)
 
         expect(response).to have_http_status(200)
@@ -346,7 +347,7 @@ describe API::Groups, api: true  do
         expect(json_response.first['name']).to eq(project2.name)
       end
 
-      it "should not return a non existing group" do
+      it "does not return a non existing group" do
         get api("/groups/1328/projects", admin)
 
         expect(response).to have_http_status(404)
@@ -354,7 +355,7 @@ describe API::Groups, api: true  do
     end
 
     context 'when using group path in URL' do
-      it 'should return any existing group' do
+      it 'returns any existing group' do
         get api("/groups/#{group1.path}/projects", admin)
 
         expect(response).to have_http_status(200)
@@ -396,6 +397,19 @@ describe API::Groups, api: true  do
         expect(json_response["name"]).to eq(group[:name])
         expect(json_response["path"]).to eq(group[:path])
         expect(json_response["request_access_enabled"]).to eq(group[:request_access_enabled])
+      end
+
+      it "creates a nested group" do
+        parent = create(:group)
+        parent.add_owner(user3)
+        group = attributes_for(:group, { parent_id: parent.id })
+
+        post api("/groups", user3), group
+
+        expect(response).to have_http_status(201)
+
+        expect(json_response["full_path"]).to eq("#{parent.path}/#{group[:path]}")
+        expect(json_response["parent_id"]).to eq(parent.id)
       end
 
       it "does not create group, duplicate" do

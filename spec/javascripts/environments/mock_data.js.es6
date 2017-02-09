@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+
 const environmentsList = [
   {
     id: 31,
@@ -50,7 +50,7 @@ const environmentsList = [
       },
       manual_actions: [],
     },
-    'stoppable?': true,
+    'stop_action?': true,
     environment_path: '/root/ci-folders/environments/31',
     created_at: '2016-11-07T11:11:16.525Z',
     updated_at: '2016-11-07T11:11:16.525Z',
@@ -105,7 +105,7 @@ const environmentsList = [
       },
       manual_actions: [],
     },
-    'stoppable?': false,
+    'stop_action?': false,
     environment_path: '/root/ci-folders/environments/31',
     created_at: '2016-11-07T11:11:16.525Z',
     updated_at: '2016-11-07T11:11:16.525Z',
@@ -116,7 +116,7 @@ const environmentsList = [
     state: 'available',
     environment_type: 'review',
     last_deployment: null,
-    'stoppable?': true,
+    'stop_action?': true,
     environment_path: '/root/ci-folders/environments/31',
     created_at: '2016-11-07T11:11:16.525Z',
     updated_at: '2016-11-07T11:11:16.525Z',
@@ -127,12 +127,14 @@ const environmentsList = [
     state: 'available',
     environment_type: 'review',
     last_deployment: null,
-    'stoppable?': true,
+    'stop_action?': true,
     environment_path: '/root/ci-folders/environments/31',
     created_at: '2016-11-07T11:11:16.525Z',
     updated_at: '2016-11-07T11:11:16.525Z',
   },
 ];
+
+window.environmentsList = environmentsList;
 
 const environment = {
   id: 4,
@@ -141,9 +143,11 @@ const environment = {
   external_url: 'http://production.',
   environment_type: null,
   last_deployment: {},
-  'stoppable?': false,
+  'stop_action?': false,
   environment_path: '/root/review-app/environments/4',
   stop_path: '/root/review-app/environments/4/stop',
   created_at: '2016-12-16T11:51:04.690Z',
   updated_at: '2016-12-16T12:04:51.133Z',
 };
+
+window.environment = environment;

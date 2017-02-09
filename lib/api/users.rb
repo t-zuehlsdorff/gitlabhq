@@ -160,6 +160,8 @@ module API
           end
         end
 
+        user_params.merge!(password_expires_at: Time.now) if user_params[:password].present?
+
         if user.update_attributes(user_params.except(:extern_uid, :provider))
           present user, with: Entities::UserPublic
         else
@@ -291,7 +293,7 @@ module API
         user = User.find_by(id: params[:id])
         not_found!('User') unless user
 
-        DeleteUserService.new(current_user).execute(user)
+        ::Users::DestroyService.new(current_user).execute(user)
       end
 
       desc 'Block a user. Available only for admins.'
