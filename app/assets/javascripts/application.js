@@ -20,7 +20,7 @@ require('vendor/jquery.waitforimages');
 require('vendor/jquery.caret');
 require('vendor/jquery.atwho');
 require('vendor/jquery.scrollTo');
-window.Cookies = require('vendor/js.cookie');
+window.Cookies = require('js-cookie');
 require('./autosave');
 require('bootstrap/js/affix');
 require('bootstrap/js/alert');
@@ -56,8 +56,7 @@ requireAll(require.context('./u2f',        false, /^\.\/.*\.(js|es6)$/));
 requireAll(require.context('./droplab',    false, /^\.\/.*\.(js|es6)$/));
 requireAll(require.context('.',            false, /^\.\/(?!application\.js).*\.(js|es6)$/));
 require('vendor/fuzzaldrin-plus');
-window.ES6Promise = require('vendor/es6-promise.auto');
-window.ES6Promise.polyfill();
+require('es6-promise').polyfill();
 
 (function () {
   document.addEventListener('beforeunload', function () {

@@ -367,7 +367,7 @@ module API
 
     class CommitStatus < Grape::Entity
       expose :id, :sha, :ref, :status, :name, :target_url, :description,
-             :created_at, :started_at, :finished_at, :allow_failure
+             :created_at, :started_at, :finished_at, :allow_failure, :coverage
       expose :author, using: Entities::UserBasic
     end
 
@@ -380,9 +380,7 @@ module API
       expose :author, using: Entities::UserBasic, if: ->(event, options) { event.author }
 
       expose :author_username do |event, options|
-        if event.author
-          event.author.username
-        end
+        event.author&.username
       end
     end
 
@@ -416,7 +414,7 @@ module API
     end
 
     class Namespace < Grape::Entity
-      expose :id, :name, :path, :kind
+      expose :id, :name, :path, :kind, :full_path
     end
 
     class MemberAccess < Grape::Entity
