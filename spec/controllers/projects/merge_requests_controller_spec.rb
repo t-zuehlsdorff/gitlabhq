@@ -1,6 +1,8 @@
 require 'spec_helper'
 
 describe Projects::MergeRequestsController do
+  include ApiHelpers
+
   let(:project) { create(:project) }
   let(:user)    { create(:user) }
   let(:merge_request) { create(:merge_request_with_diffs, target_project: project, source_project: project) }
@@ -20,22 +22,40 @@ describe Projects::MergeRequestsController do
       render_views
 
       let(:fork_project) { create(:forked_project_with_submodules) }
+      before { fork_project.team << [user, :master] }
 
-      before do
-        fork_project.team << [user, :master]
+      context 'when rendering HTML response' do
+        it 'renders new merge request widget template' do
+          submit_new_merge_request
+
+          expect(response).to be_success
+        end
       end
 
-      it 'renders it' do
-        get :new,
-            namespace_id: fork_project.namespace.to_param,
-            project_id: fork_project.to_param,
-            merge_request: {
-              source_branch: 'remove-submodule',
-              target_branch: 'master'
-            }
+      context 'when rendering JSON response' do
+        before do
+          create(:ci_pipeline, sha: fork_project.commit('remove-submodule').id,
+                               ref: 'remove-submodule',
+                               project: fork_project)
+        end
 
-        expect(response).to be_success
+        it 'renders JSON including serialized pipelines' do
+          submit_new_merge_request(format: :json)
+
+          expect(response).to be_ok
+          expect(json_response).not_to be_empty
+        end
       end
+    end
+
+    def submit_new_merge_request(format: :html)
+      get :new,
+          namespace_id: fork_project.namespace.to_param,
+          project_id: fork_project.to_param,
+          merge_request: {
+            source_branch: 'remove-submodule',
+            target_branch: 'master' },
+          format: format
     end
   end
 
@@ -127,12 +147,16 @@ describe Projects::MergeRequestsController do
   end
 
   describe 'GET index' do
+    let!(:merge_request) { create(:merge_request_with_diffs, target_project: project, source_project: project) }
+
     def get_merge_requests(page = nil)
       get :index,
           namespace_id: project.namespace.to_param,
           project_id: project.to_param,
           state: 'opened', page: page.to_param
     end
+
+    it_behaves_like "issuables list meta-data", :merge_request
 
     context 'when page param' do
       let(:last_page) { project.merge_requests.page().total_pages }
@@ -455,7 +479,7 @@ describe Projects::MergeRequestsController do
 
         it 'renders the diffs template to a string' do
           expect(response).to render_template('projects/merge_requests/show/_diffs')
-          expect(JSON.parse(response.body)).to have_key('html')
+          expect(json_response).to have_key('html')
         end
       end
 
@@ -494,7 +518,7 @@ describe Projects::MergeRequestsController do
 
         it 'renders the diffs template to a string' do
           expect(response).to render_template('projects/merge_requests/show/_diffs')
-          expect(JSON.parse(response.body)).to have_key('html')
+          expect(json_response).to have_key('html')
         end
       end
     end
@@ -662,18 +686,38 @@ describe Projects::MergeRequestsController do
         go format: 'json'
 
         expect(response).to render_template('projects/merge_requests/show/_commits')
-        expect(JSON.parse(response.body)).to have_key('html')
+        expect(json_response).to have_key('html')
       end
     end
   end
 
   describe 'GET pipelines' do
-    it_behaves_like "loads labels", :pipelines
+    before do
+      create(:ci_pipeline, project: merge_request.source_project,
+                           ref: merge_request.source_branch,
+                           sha: merge_request.diff_head_sha)
+    end
+
+    context 'when using HTML format' do
+      it_behaves_like "loads labels", :pipelines
+    end
+
+    context 'when using JSON format' do
+      before do
+        get :pipelines,
+            namespace_id: project.namespace.to_param,
+            project_id: project.to_param,
+            id: merge_request.iid,
+            format: :json
+      end
+
+      it 'responds with serialized pipelines' do
+        expect(json_response).not_to be_empty
+      end
+    end
   end
 
   describe 'GET conflicts' do
-    let(:json_response) { JSON.parse(response.body) }
-
     context 'when the conflicts cannot be resolved in the UI' do
       before do
         allow_any_instance_of(Gitlab::Conflict::Parser).
@@ -770,8 +814,6 @@ describe Projects::MergeRequestsController do
   end
 
   describe 'GET conflict_for_path' do
-    let(:json_response) { JSON.parse(response.body) }
-
     def conflict_for_path(path)
       get :conflict_for_path,
           namespace_id: merge_request_with_conflicts.project.namespace.to_param,
@@ -826,7 +868,6 @@ describe Projects::MergeRequestsController do
   end
 
   context 'POST resolve_conflicts' do
-    let(:json_response) { JSON.parse(response.body) }
     let!(:original_head_sha) { merge_request_with_conflicts.diff_head_sha }
 
     def resolve_conflicts(files)
@@ -1024,7 +1065,6 @@ describe Projects::MergeRequestsController do
       let!(:forked)       { create(:project) }
       let!(:environment)  { create(:environment, project: forked) }
       let!(:deployment)   { create(:deployment, environment: environment, sha: forked.commit.id, ref: 'master') }
-      let(:json_response) { JSON.parse(response.body) }
       let(:admin)         { create(:admin) }
 
       let(:merge_request) do
@@ -1103,15 +1143,15 @@ describe Projects::MergeRequestsController do
       end
     end
 
-    context 'when no special status for MR' do
+    context 'when MR does not have special state' do
       let(:merge_request) { create(:merge_request, source_project: project) }
 
       it 'returns an OK response' do
         expect(response).to have_http_status(:ok)
       end
 
-      it 'sets status to nil' do
-        expect(assigns(:status)).to be_nil
+      it 'sets status to success' do
+        expect(assigns(:status)).to eq(:success)
         expect(response).to render_template('merge')
       end
     end

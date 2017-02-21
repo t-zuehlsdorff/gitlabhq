@@ -1,7 +1,7 @@
 /* eslint-disable class-methods-use-this, object-shorthand, no-unused-vars, no-use-before-define, no-new, max-len, no-restricted-syntax, guard-for-in, no-continue */
 /* jshint esversion: 6 */
 
-/*= require lib/utils/common_utils */
+require('./lib/utils/common_utils');
 
 (() => {
   const gfmRules = {
@@ -91,6 +91,9 @@
       },
     },
     SanitizationFilter: {
+      'a[name]:not([href]):empty'(el, text) {
+        return el.outerHTML;
+      },
       'dl'(el, text) {
         let lines = text.trim().split('\n');
         // Add two spaces to the front of subsequent list items lines,

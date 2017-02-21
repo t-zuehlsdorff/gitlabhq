@@ -19,6 +19,10 @@ feature 'Environment', :feature do
       visit_environment(environment)
     end
 
+    scenario 'shows environment name' do
+      expect(page).to have_content(environment.name)
+    end
+
     context 'without deployments' do
       scenario 'does show no deployments' do
         expect(page).to have_content('You don\'t have any deployments right now.')
@@ -60,10 +64,6 @@ feature 'Environment', :feature do
           expect(page).to have_link('Re-deploy')
         end
 
-        scenario 'does not show stop button' do
-          expect(page).not_to have_link('Stop')
-        end
-
         scenario 'does not show terminal button' do
           expect(page).not_to have_terminal_button
         end
@@ -101,6 +101,22 @@ feature 'Environment', :feature do
               scenario 'it shows the terminal button' do
                 expect(page).to have_terminal_button
               end
+
+              context 'web terminal', :js do
+                before do
+                  # Stub #terminals as it causes js-enabled feature specs to render the page incorrectly
+                  allow_any_instance_of(Environment).to receive(:terminals) { nil }
+                  visit terminal_namespace_project_environment_path(project.namespace, project, environment)
+                end
+
+                it 'displays a web terminal' do
+                  expect(page).to have_selector('#terminal')
+                end
+
+                it 'displays a link to the environment external url' do
+                  expect(page).to have_link(nil, href: environment.external_url)
+                end
+              end
             end
 
             context 'for developer' do
@@ -112,26 +128,42 @@ feature 'Environment', :feature do
             end
           end
 
-          context 'with stop action' do
-            given(:manual) { create(:ci_build, :manual, pipeline: pipeline, name: 'close_app') }
-            given(:deployment) { create(:deployment, environment: environment, deployable: build, on_stop: 'close_app') }
+          context 'when environment is available' do
+            context 'with stop action' do
+              given(:manual) { create(:ci_build, :manual, pipeline: pipeline, name: 'close_app') }
+              given(:deployment) { create(:deployment, environment: environment, deployable: build, on_stop: 'close_app') }
 
-            scenario 'does show stop button' do
-              expect(page).to have_link('Stop')
-            end
-
-            scenario 'does allow to stop environment' do
-              click_link('Stop')
-
-              expect(page).to have_content('close_app')
-            end
-
-            context 'for reporter' do
-              let(:role) { :reporter }
-
-              scenario 'does not show stop button' do
-                expect(page).not_to have_link('Stop')
+              scenario 'does show stop button' do
+                expect(page).to have_link('Stop')
               end
+
+              scenario 'does allow to stop environment' do
+                click_link('Stop')
+
+                expect(page).to have_content('close_app')
+              end
+
+              context 'for reporter' do
+                let(:role) { :reporter }
+
+                scenario 'does not show stop button' do
+                  expect(page).not_to have_link('Stop')
+                end
+              end
+            end
+
+            context 'without stop action' do
+              scenario 'does allow to stop environment' do
+                click_link('Stop')
+              end
+            end
+          end
+
+          context 'when environment is stopped' do
+            given(:environment) { create(:environment, project: project, state: :stopped) }
+
+            scenario 'does not show stop button' do
+              expect(page).not_to have_link('Stop')
             end
           end
         end

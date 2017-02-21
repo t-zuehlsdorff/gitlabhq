@@ -30,6 +30,16 @@ class Projects::CommitController < Projects::ApplicationController
   end
 
   def pipelines
+    @pipelines = @commit.pipelines.order(id: :desc)
+
+    respond_to do |format|
+      format.html
+      format.json do
+        render json: PipelineSerializer
+          .new(project: @project, user: @current_user)
+          .represent(@pipelines)
+      end
+    end
   end
 
   def branches
@@ -39,7 +49,7 @@ class Projects::CommitController < Projects::ApplicationController
   end
 
   def revert
-    assign_change_commit_vars(@commit.revert_branch_name)
+    assign_change_commit_vars
 
     return render_404 if @target_branch.blank?
 
@@ -48,7 +58,7 @@ class Projects::CommitController < Projects::ApplicationController
   end
 
   def cherry_pick
-    assign_change_commit_vars(@commit.cherry_pick_branch_name)
+    assign_change_commit_vars
 
     return render_404 if @target_branch.blank?
 
@@ -84,6 +94,8 @@ class Projects::CommitController < Projects::ApplicationController
 
     @diffs = commit.diffs(opts)
     @notes_count = commit.notes.count
+    
+    @environment = EnvironmentsFinder.new(@project, current_user, commit: @commit).execute.last
   end
 
   def define_note_vars
@@ -105,11 +117,9 @@ class Projects::CommitController < Projects::ApplicationController
     }
   end
 
-  def assign_change_commit_vars(mr_source_branch)
+  def assign_change_commit_vars
     @commit = project.commit(params[:id])
     @target_branch = params[:target_branch]
-    @mr_source_branch = mr_source_branch
-    @mr_target_branch = @target_branch
     @commit_params = {
       commit: @commit,
       create_merge_request: params[:create_merge_request].present? || different_project?

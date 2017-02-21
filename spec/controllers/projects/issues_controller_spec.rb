@@ -24,6 +24,8 @@ describe Projects::IssuesController do
         project.team << [user, :developer]
       end
 
+      it_behaves_like "issuables list meta-data", :issue
+
       it "returns index" do
         get :index, namespace_id: project.namespace.path, project_id: project.path
 
@@ -98,7 +100,7 @@ describe Projects::IssuesController do
       end
 
       it 'fills in an issue for a merge request' do
-        project_with_repository = create(:project)
+        project_with_repository = create(:project, :repository)
         project_with_repository.team << [user, :developer]
         mr = create(:merge_request_with_diff_notes, source_project: project_with_repository)
 
@@ -124,7 +126,7 @@ describe Projects::IssuesController do
 
   describe 'PUT #update' do
     context 'when moving issue to another private project' do
-      let(:another_project) { create(:project, :private) }
+      let(:another_project) { create(:empty_project, :private) }
 
       before do
         sign_in(user)
@@ -326,7 +328,7 @@ describe Projects::IssuesController do
   end
 
   describe 'POST #create' do
-    def post_new_issue(attrs = {})
+    def post_new_issue(issue_attrs = {}, additional_params = {})
       sign_in(user)
       project = create(:empty_project, :public)
       project.team << [user, :developer]
@@ -334,8 +336,8 @@ describe Projects::IssuesController do
       post :create, {
         namespace_id: project.namespace.to_param,
         project_id: project.to_param,
-        issue: { title: 'Title', description: 'Description' }.merge(attrs)
-      }
+        issue: { title: 'Title', description: 'Description' }.merge(issue_attrs)
+      }.merge(additional_params)
 
       project.issues.first
     end
@@ -378,24 +380,81 @@ describe Projects::IssuesController do
 
     context 'Akismet is enabled' do
       before do
+        stub_application_setting(recaptcha_enabled: true)
         allow_any_instance_of(SpamService).to receive(:check_for_spam?).and_return(true)
-        allow_any_instance_of(AkismetService).to receive(:is_spam?).and_return(true)
       end
 
-      def post_spam_issue
-        post_new_issue(title: 'Spam Title', description: 'Spam lives here')
+      context 'when an issue is not identified as a spam' do
+        before do
+          allow_any_instance_of(described_class).to receive(:verify_recaptcha).and_return(false)
+          allow_any_instance_of(AkismetService).to receive(:is_spam?).and_return(false)
+        end
+
+        it 'does not create an issue' do
+          expect { post_new_issue(title: '') }.not_to change(Issue, :count)
+        end
       end
 
-      it 'rejects an issue recognized as spam' do
-        expect{ post_spam_issue }.not_to change(Issue, :count)
-        expect(response).to render_template(:new)
-      end
+      context 'when an issue is identified as a spam' do
+        before { allow_any_instance_of(AkismetService).to receive(:is_spam?).and_return(true) }
 
-      it 'creates a spam log' do
-        post_spam_issue
-        spam_logs = SpamLog.all
-        expect(spam_logs.count).to eq(1)
-        expect(spam_logs[0].title).to eq('Spam Title')
+        context 'when captcha is not verified' do
+          def post_spam_issue
+            post_new_issue(title: 'Spam Title', description: 'Spam lives here')
+          end
+
+          before { allow_any_instance_of(described_class).to receive(:verify_recaptcha).and_return(false) }
+
+          it 'rejects an issue recognized as a spam' do
+            expect { post_spam_issue }.not_to change(Issue, :count)
+          end
+
+          it 'creates a spam log' do
+            post_spam_issue
+            spam_logs = SpamLog.all
+
+            expect(spam_logs.count).to eq(1)
+            expect(spam_logs.first.title).to eq('Spam Title')
+            expect(spam_logs.first.recaptcha_verified).to be_falsey
+          end
+
+          it 'does not create an issue when it is not valid' do
+            expect { post_new_issue(title: '') }.not_to change(Issue, :count)
+          end
+
+          it 'does not create an issue when recaptcha is not enabled' do
+            stub_application_setting(recaptcha_enabled: false)
+
+            expect { post_spam_issue }.not_to change(Issue, :count)
+          end
+        end
+
+        context 'when captcha is verified' do
+          let!(:spam_logs) { create_list(:spam_log, 2, user: user, title: 'Title') }
+
+          def post_verified_issue
+            post_new_issue({}, { spam_log_id: spam_logs.last.id, recaptcha_verification: true } )
+          end
+
+          before do
+            allow_any_instance_of(described_class).to receive(:verify_recaptcha).and_return(true)
+          end
+
+          it 'accepts an issue after recaptcha is verified' do
+            expect { post_verified_issue }.to change(Issue, :count)
+          end
+
+          it 'marks spam log as recaptcha_verified' do
+            expect { post_verified_issue }.to change { SpamLog.last.recaptcha_verified }.from(false).to(true)
+          end
+
+          it 'does not mark spam log as recaptcha_verified when it does not belong to current_user' do
+            spam_log = create(:spam_log)
+
+            expect { post_new_issue({}, { spam_log_id: spam_log.id, recaptcha_verification: true } ) }.
+              not_to change { SpamLog.last.recaptcha_verified }
+          end
+        end
       end
     end
 
@@ -405,7 +464,7 @@ describe Projects::IssuesController do
       end
 
       it 'creates a user agent detail' do
-        expect{ post_new_issue }.to change(UserAgentDetail, :count).by(1)
+        expect { post_new_issue }.to change(UserAgentDetail, :count).by(1)
       end
     end
 
@@ -466,7 +525,7 @@ describe Projects::IssuesController do
     context "when the user is owner" do
       let(:owner)     { create(:user) }
       let(:namespace) { create(:namespace, owner: owner) }
-      let(:project)   { create(:project, namespace: namespace) }
+      let(:project)   { create(:empty_project, namespace: namespace) }
 
       before { sign_in(owner) }
 

@@ -53,6 +53,8 @@ class Project < ActiveRecord::Base
     update_column(:last_activity_at, self.created_at)
   end
 
+  after_destroy :remove_pages
+
   # update visibility_level of forks
   after_update :update_forks_visibility_level
   def update_forks_visibility_level
@@ -148,6 +150,7 @@ class Project < ActiveRecord::Base
   has_many :lfs_objects, through: :lfs_objects_projects
   has_many :project_group_links, dependent: :destroy
   has_many :invited_groups, through: :project_group_links, source: :group
+  has_many :pages_domains, dependent: :destroy
   has_many :todos, dependent: :destroy
   has_many :notification_settings, dependent: :destroy, as: :source
 
@@ -211,6 +214,8 @@ class Project < ActiveRecord::Base
   # Scopes
   default_scope { where(pending_delete: false) }
 
+  scope :with_deleted, -> { unscope(where: :pending_delete) }
+
   scope :sorted_by_activity, -> { reorder(last_activity_at: :desc) }
   scope :sorted_by_stars, -> { reorder('projects.star_count DESC') }
 
@@ -225,6 +230,12 @@ class Project < ActiveRecord::Base
   scope :with_project_feature, -> { joins('LEFT JOIN project_features ON projects.id = project_features.project_id') }
   scope :with_statistics, -> { includes(:statistics) }
   scope :with_shared_runners, -> { where(shared_runners_enabled: true) }
+  scope :inside_path, ->(path) do
+    # We need routes alias rs for JOIN so it does not conflict with
+    # includes(:route) which we use in ProjectsFinder.
+    joins("INNER JOIN routes rs ON rs.source_id = projects.id AND rs.source_type = 'Project'").
+      where('rs.path LIKE ?', "#{path}/%")
+  end
 
   # "enabled" here means "not disabled". It includes private features!
   scope :with_feature_enabled, ->(feature) {
@@ -369,10 +380,6 @@ class Project < ActiveRecord::Base
     def group_ids
       joins(:namespace).where(namespaces: { type: 'Group' }).select(:namespace_id)
     end
-
-    # Add alias for Routable method for compatibility with old code.
-    # In future all calls `find_with_namespace` should be replaced with `find_by_full_path`
-    alias_method :find_with_namespace, :find_by_full_path
   end
 
   def lfs_enabled?
@@ -449,7 +456,7 @@ class Project < ActiveRecord::Base
     if forked?
       job_id = RepositoryForkWorker.perform_async(id, forked_from_project.repository_storage_path,
                                                   forked_from_project.path_with_namespace,
-                                                  self.namespace.path)
+                                                  self.namespace.full_path)
     else
       job_id = RepositoryImportWorker.perform_async(self.id)
     end
@@ -464,7 +471,7 @@ class Project < ActiveRecord::Base
   def reset_cache_and_import_attrs
     ProjectCacheWorker.perform_async(self.id)
 
-    self.import_data.destroy if self.import_data
+    self.import_data&.destroy
   end
 
   def import_url=(value)
@@ -591,10 +598,11 @@ class Project < ActiveRecord::Base
     end
   end
 
-  def to_reference(from_project = nil, full: false)
-    if full || cross_namespace_reference?(from_project)
+  # `from` argument can be a Namespace or Project.
+  def to_reference(from = nil, full: false)
+    if full || cross_namespace_reference?(from)
       path_with_namespace
-    elsif cross_project_reference?(from_project)
+    elsif cross_project_reference?(from)
       path
     end
   end
@@ -809,26 +817,6 @@ class Project < ActiveRecord::Base
     end
   end
 
-  def name_with_namespace
-    @name_with_namespace ||= begin
-                               if namespace
-                                 namespace.human_name + ' / ' + name
-                               else
-                                 name
-                               end
-                             end
-  end
-  alias_method :human_name, :name_with_namespace
-
-  def full_path
-    if namespace && path
-      namespace.full_path + '/' + path
-    else
-      path
-    end
-  end
-  alias_method :path_with_namespace, :full_path
-
   def execute_hooks(data, hooks_scope = :push_hooks)
     hooks.send(hooks_scope).each do |hook|
       hook.async_execute(data, hooks_scope.to_s)
@@ -956,7 +944,8 @@ class Project < ActiveRecord::Base
 
     Gitlab::AppLogger.info "Project was renamed: #{old_path_with_namespace} -> #{new_path_with_namespace}"
 
-    Gitlab::UploadsTransfer.new.rename_project(path_was, path, namespace.path)
+    Gitlab::UploadsTransfer.new.rename_project(path_was, path, namespace.full_path)
+    Gitlab::PagesTransfer.new.rename_project(path_was, path, namespace.full_path)
   end
 
   # Expires various caches before a project is renamed.
@@ -1158,6 +1147,51 @@ class Project < ActiveRecord::Base
     ensure_runners_token!
   end
 
+  def pages_deployed?
+    Dir.exist?(public_pages_path)
+  end
+
+  def pages_url
+    subdomain, _, url_path = full_path.partition('/')
+
+    # The hostname always needs to be in downcased
+    # All web servers convert hostname to lowercase
+    host = "#{subdomain}.#{Settings.pages.host}".downcase
+
+    # The host in URL always needs to be downcased
+    url = Gitlab.config.pages.url.sub(/^https?:\/\//) do |prefix|
+      "#{prefix}#{subdomain}."
+    end.downcase
+
+    # If the project path is the same as host, we serve it as group page
+    return url if host == url_path
+
+    "#{url}/#{url_path}"
+  end
+
+  def pages_subdomain
+    full_path.partition('/').first
+  end
+
+  def pages_path
+    File.join(Settings.pages.path, path_with_namespace)
+  end
+
+  def public_pages_path
+    File.join(pages_path, 'public')
+  end
+
+  def remove_pages
+    # 1. We rename pages to temporary directory
+    # 2. We wait 5 minutes, due to NFS caching
+    # 3. We asynchronously remove pages with force
+    temp_path = "#{path}.#{SecureRandom.hex}.deleted"
+
+    if Gitlab::PagesTransfer.new.rename_project(path, temp_path, namespace.full_path)
+      PagesWorker.perform_in(5.minutes, :remove, namespace.full_path, temp_path)
+    end
+  end
+
   def wiki
     @wiki ||= ProjectWiki.new(self, self.owner)
   end
@@ -1204,7 +1238,7 @@ class Project < ActiveRecord::Base
   end
 
   def ensure_dir_exist
-    gitlab_shell.add_namespace(repository_storage_path, namespace.path)
+    gitlab_shell.add_namespace(repository_storage_path, namespace.full_path)
   end
 
   def predefined_variables
@@ -1212,7 +1246,7 @@ class Project < ActiveRecord::Base
       { key: 'CI_PROJECT_ID', value: id.to_s, public: true },
       { key: 'CI_PROJECT_NAME', value: path, public: true },
       { key: 'CI_PROJECT_PATH', value: path_with_namespace, public: true },
-      { key: 'CI_PROJECT_NAMESPACE', value: namespace.path, public: true },
+      { key: 'CI_PROJECT_NAMESPACE', value: namespace.full_path, public: true },
       { key: 'CI_PROJECT_URL', value: web_url, public: true }
     ]
   end
@@ -1265,45 +1299,60 @@ class Project < ActiveRecord::Base
     Gitlab::Redis.with { |redis| redis.del(pushes_since_gc_redis_key) }
   end
 
-  def environments_for(ref, commit: nil, with_tags: false)
-    deployments_query = with_tags ? 'ref = ? OR tag IS TRUE' : 'ref = ?'
+  def route_map_for(commit_sha)
+    @route_maps_by_commit ||= Hash.new do |h, sha|
+      h[sha] = begin
+        data = repository.route_map_for(sha)
+        next unless data
 
-    environment_ids = deployments
-      .where(deployments_query, ref.to_s)
-      .group(:environment_id)
-      .select(:environment_id)
-
-    environments_found = environments.available
-      .where(id: environment_ids).to_a
-
-    return environments_found unless commit
-
-    environments_found.select do |environment|
-      environment.includes_commit?(commit)
+        Gitlab::RouteMap.new(data)
+      rescue Gitlab::RouteMap::FormatError
+        nil
+      end
     end
+
+    @route_maps_by_commit[commit_sha]
   end
 
-  def environments_recently_updated_on_branch(branch)
-    environments_for(branch).select do |environment|
-      environment.recently_updated_on_branch?(branch)
-    end
+  def public_path_for_source_path(path, commit_sha)
+    map = route_map_for(commit_sha)
+    return unless map
+
+    map.public_path_for_source_path(path)
   end
+
+  def parent
+    namespace
+  end
+
+  def parent_changed?
+    namespace_id_changed?
+  end
+
+  alias_method :name_with_namespace, :full_name
+  alias_method :human_name, :full_name
+  alias_method :path_with_namespace, :full_path
 
   private
 
+  def cross_namespace_reference?(from)
+    case from
+    when Project
+      namespace != from.namespace
+    when Namespace
+      namespace != from
+    end
+  end
+
   # Check if a reference is being done cross-project
-  #
-  # from_project - Refering Project object
-  def cross_project_reference?(from_project)
-    from_project && self != from_project
+  def cross_project_reference?(from)
+    return true if from.is_a?(Namespace)
+
+    from && self != from
   end
 
   def pushes_since_gc_redis_key
     "projects/#{id}/pushes_since_gc"
-  end
-
-  def cross_namespace_reference?(from_project)
-    from_project && namespace != from_project.namespace
   end
 
   def default_branch_protected?
@@ -1320,10 +1369,6 @@ class Project < ActiveRecord::Base
   # than the number of permitted boards per project it won't fail.
   def validate_board_limit(board)
     raise BoardLimitExceeded, 'Number of permitted boards exceeded' if boards.size >= NUMBER_OF_PERMITTED_BOARDS
-  end
-
-  def full_path_changed?
-    path_changed? || namespace_id_changed?
   end
 
   def update_project_statistics
@@ -1345,6 +1390,6 @@ class Project < ActiveRecord::Base
   def pending_delete_twin
     return false unless path
 
-    Project.unscoped.where(pending_delete: true).find_with_namespace(path_with_namespace)
+    Project.unscoped.where(pending_delete: true).find_by_full_path(path_with_namespace)
   end
 end

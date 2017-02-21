@@ -1,11 +1,9 @@
 /* eslint-disable comma-dangle, no-param-reassign, no-unused-expressions, max-len */
-/* global Turbolinks */
 
-/*= require jquery */
-/*= require gl_dropdown */
-/*= require turbolinks */
-/*= require lib/utils/common_utils */
-/*= require lib/utils/type_utility */
+require('~/gl_dropdown');
+require('~/lib/utils/common_utils');
+require('~/lib/utils/type_utility');
+require('~/lib/utils/url_utility');
 
 (() => {
   const NON_SELECTABLE_CLASSES = '.divider, .separator, .dropdown-header, .dropdown-menu-empty-link';
@@ -44,6 +42,7 @@
 
   describe('Dropdown', function describeDropdown() {
     preloadFixtures('static/gl_dropdown.html.raw');
+    loadJSONFixtures('projects.json');
 
     function initDropDown(hasRemote, isFilterable) {
       this.dropdownButtonElement = $('#js-project-dropdown', this.dropdownContainerElement).glDropdown({
@@ -112,13 +111,13 @@
         expect(this.dropdownContainerElement).toHaveClass('open');
         const randomIndex = Math.floor(Math.random() * (this.projectsData.length - 1)) + 0;
         navigateWithKeys('down', randomIndex, () => {
-          spyOn(Turbolinks, 'visit').and.stub();
+          spyOn(gl.utils, 'visitUrl').and.stub();
           navigateWithKeys('enter', null, () => {
             expect(this.dropdownContainerElement).not.toHaveClass('open');
             const link = $(`${ITEM_SELECTOR}:eq(${randomIndex}) a`, this.$dropdownMenuElement);
             expect(link).toHaveClass('is-active');
             const linkedLocation = link.attr('href');
-            if (linkedLocation && linkedLocation !== '#') expect(Turbolinks.visit).toHaveBeenCalledWith(linkedLocation);
+            if (linkedLocation && linkedLocation !== '#') expect(gl.utils.visitUrl).toHaveBeenCalledWith(linkedLocation);
           });
         });
       });
@@ -138,6 +137,14 @@
       beforeEach(() => {
         initDropDown.call(this, true, true);
         this.dropdownButtonElement.click();
+      });
+
+      it('should show loading indicator while search results are being fetched by backend', () => {
+        const dropdownMenu = document.querySelector('.dropdown-menu');
+
+        expect(dropdownMenu.className.indexOf('is-loading') !== -1).toEqual(true);
+        remoteCallback();
+        expect(dropdownMenu.className.indexOf('is-loading') !== -1).toEqual(false);
       });
 
       it('should not focus search input while remote task is not complete', () => {

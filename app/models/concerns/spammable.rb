@@ -11,6 +11,7 @@ module Spammable
     has_one :user_agent_detail, as: :subject, dependent: :destroy
 
     attr_accessor :spam
+    attr_accessor :spam_log
 
     after_validation :check_for_spam, on: :create
 
@@ -34,7 +35,18 @@ module Spammable
   end
 
   def check_for_spam
-    self.errors.add(:base, "Your #{self.class.name.underscore} has been recognized as spam and has been discarded.") if spam?
+    error_msg = if Gitlab::Recaptcha.enabled?
+                  "Your #{spammable_entity_type} has been recognized as spam. "\
+                  "You can still submit it by solving Captcha."
+                else
+                  "Your #{spammable_entity_type} has been recognized as spam and has been discarded."
+                end
+
+    self.errors.add(:base, error_msg) if spam?
+  end
+
+  def spammable_entity_type
+    self.class.name.underscore
   end
 
   def spam_title

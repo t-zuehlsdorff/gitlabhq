@@ -60,6 +60,7 @@ describe Project, models: true do
     it { is_expected.to have_many(:runners) }
     it { is_expected.to have_many(:variables) }
     it { is_expected.to have_many(:triggers) }
+    it { is_expected.to have_many(:pages_domains) }
     it { is_expected.to have_many(:labels).class_name('ProjectLabel').dependent(:destroy) }
     it { is_expected.to have_many(:users_star_projects).dependent(:destroy) }
     it { is_expected.to have_many(:environments).dependent(:destroy) }
@@ -274,21 +275,23 @@ describe Project, models: true do
     it { is_expected.to delegate_method(:add_master).to(:team) }
   end
 
-  describe '#name_with_namespace' do
-    let(:project) { build_stubbed(:empty_project) }
-
-    it { expect(project.name_with_namespace).to eq "#{project.namespace.human_name} / #{project.name}" }
-    it { expect(project.human_name).to eq project.name_with_namespace }
-  end
-
   describe '#to_reference' do
-    let(:owner) { create(:user, name: 'Gitlab') }
+    let(:owner)     { create(:user, name: 'Gitlab') }
     let(:namespace) { create(:namespace, path: 'sample-namespace', owner: owner) }
-    let(:project) { create(:empty_project, path: 'sample-project', namespace: namespace) }
+    let(:project)   { create(:empty_project, path: 'sample-project', namespace: namespace) }
+    let(:group)     { create(:group, name: 'Group', path: 'sample-group', owner: owner) }
 
     context 'when nil argument' do
       it 'returns nil' do
         expect(project.to_reference).to be_nil
+      end
+    end
+
+    context 'when full is true' do
+      it 'returns complete path to the project' do
+        expect(project.to_reference(full: true)).to          eq 'sample-namespace/sample-project'
+        expect(project.to_reference(project, full: true)).to eq 'sample-namespace/sample-project'
+        expect(project.to_reference(group, full: true)).to   eq 'sample-namespace/sample-project'
       end
     end
 
@@ -309,8 +312,31 @@ describe Project, models: true do
     context 'when same namespace / cross-project argument' do
       let(:another_project) { create(:empty_project, namespace: namespace) }
 
-      it 'returns complete path to the project' do
+      it 'returns path to the project' do
         expect(project.to_reference(another_project)).to eq 'sample-project'
+      end
+    end
+
+    context 'when different namespace / cross-project argument' do
+      let(:another_namespace) { create(:namespace, path: 'another-namespace', owner: owner) }
+      let(:another_project)   { create(:empty_project, path: 'another-project', namespace: another_namespace) }
+
+      it 'returns full path to the project' do
+        expect(project.to_reference(another_project)).to eq 'sample-namespace/sample-project'
+      end
+    end
+
+    context 'when argument is a namespace' do
+      context 'with same project path' do
+        it 'returns path to the project' do
+          expect(project.to_reference(namespace)).to eq 'sample-project'
+        end
+      end
+
+      context 'with different project path' do
+        it 'returns full path to the project' do
+          expect(project.to_reference(group)).to eq 'sample-namespace/sample-project'
+        end
       end
     end
   end
@@ -600,7 +626,7 @@ describe Project, models: true do
   end
 
   describe '#has_wiki?' do
-    let(:no_wiki_project)       { create(:empty_project, wiki_access_level: ProjectFeature::DISABLED, has_external_wiki: false) }
+    let(:no_wiki_project)       { create(:empty_project, :wiki_disabled, has_external_wiki: false) }
     let(:wiki_enabled_project)  { create(:empty_project) }
     let(:external_wiki_project) { create(:empty_project, has_external_wiki: true) }
 
@@ -1032,6 +1058,22 @@ describe Project, models: true do
       it { expect(forked_project.visibility_level_allowed?(Gitlab::VisibilityLevel::PRIVATE)).to be_truthy }
       it { expect(forked_project.visibility_level_allowed?(Gitlab::VisibilityLevel::INTERNAL)).to be_truthy }
       it { expect(forked_project.visibility_level_allowed?(Gitlab::VisibilityLevel::PUBLIC)).to be_falsey }
+    end
+  end
+
+  describe '#pages_deployed?' do
+    let(:project) { create :empty_project }
+
+    subject { project.pages_deployed? }
+
+    context 'if public folder does exist' do
+      before { allow(Dir).to receive(:exist?).with(project.public_pages_path).and_return(true) }
+
+      it { is_expected.to be_truthy }
+    end
+
+    context "if public folder doesn't exist" do
+      it { is_expected.to be_falsey }
     end
   end
 
@@ -1667,100 +1709,6 @@ describe Project, models: true do
     end
   end
 
-  describe '#environments_for' do
-    let(:project) { create(:project, :repository) }
-    let(:environment) { create(:environment, project: project) }
-
-    context 'tagged deployment' do
-      before do
-        create(:deployment, environment: environment, ref: '1.0', tag: true, sha: project.commit.id)
-      end
-
-      it 'returns environment when with_tags is set' do
-        expect(project.environments_for('master', commit: project.commit, with_tags: true))
-          .to contain_exactly(environment)
-      end
-
-      it 'does not return environment when no with_tags is set' do
-        expect(project.environments_for('master', commit: project.commit))
-          .to be_empty
-      end
-
-      it 'does not return environment when commit is not part of deployment' do
-        expect(project.environments_for('master', commit: project.commit('feature')))
-          .to be_empty
-      end
-    end
-
-    context 'branch deployment' do
-      before do
-        create(:deployment, environment: environment, ref: 'master', sha: project.commit.id)
-      end
-
-      it 'returns environment when ref is set' do
-        expect(project.environments_for('master', commit: project.commit))
-          .to contain_exactly(environment)
-      end
-
-      it 'does not environment when ref is different' do
-        expect(project.environments_for('feature', commit: project.commit))
-          .to be_empty
-      end
-
-      it 'does not return environment when commit is not part of deployment' do
-        expect(project.environments_for('master', commit: project.commit('feature')))
-          .to be_empty
-      end
-
-      it 'returns environment when commit constraint is not set' do
-        expect(project.environments_for('master'))
-          .to contain_exactly(environment)
-      end
-    end
-  end
-
-  describe '#environments_recently_updated_on_branch' do
-    let(:project) { create(:project, :repository) }
-    let(:environment) { create(:environment, project: project) }
-
-    context 'when last deployment to environment is the most recent one' do
-      before do
-        create(:deployment, environment: environment, ref: 'feature')
-      end
-
-      it 'finds recently updated environment' do
-        expect(project.environments_recently_updated_on_branch('feature'))
-          .to contain_exactly(environment)
-      end
-    end
-
-    context 'when last deployment to environment is not the most recent' do
-      before do
-        create(:deployment, environment: environment, ref: 'feature')
-        create(:deployment, environment: environment, ref: 'master')
-      end
-
-      it 'does not find environment' do
-        expect(project.environments_recently_updated_on_branch('feature'))
-          .to be_empty
-      end
-    end
-
-    context 'when there are two environments that deploy to the same branch' do
-      let(:second_environment) { create(:environment, project: project) }
-
-      before do
-        create(:deployment, environment: environment, ref: 'feature')
-        create(:deployment, environment: second_environment, ref: 'feature')
-      end
-
-      it 'finds both environments' do
-        expect(project.environments_recently_updated_on_branch('feature'))
-          .to contain_exactly(environment, second_environment)
-      end
-    end
-  end
-
   describe '#deployment_variables' do
     context 'when project has no deployment service' do
       let(:project) { create(:empty_project) }
@@ -1801,7 +1749,151 @@ describe Project, models: true do
     end
   end
 
+  describe 'inside_path' do
+    let!(:project1) { create(:empty_project) }
+    let!(:project2) { create(:empty_project) }
+    let!(:path) { project1.namespace.path }
+
+    it { expect(Project.inside_path(path)).to eq([project1]) }
+  end
+
+  describe '#route_map_for' do
+    let(:project) { create(:project) }
+    let(:route_map) do
+      <<-MAP.strip_heredoc
+      - source: /source/(.*)/
+        public: '\\1'
+      MAP
+    end
+
+    before do
+      project.repository.commit_file(User.last, '.gitlab/route-map.yml', route_map, message: 'Add .gitlab/route-map.yml', branch_name: 'master', update: false)
+    end
+
+    context 'when there is a .gitlab/route-map.yml at the commit' do
+      context 'when the route map is valid' do
+        it 'returns a route map' do
+          map = project.route_map_for(project.commit.sha)
+          expect(map).to be_a_kind_of(Gitlab::RouteMap)
+        end
+      end
+
+      context 'when the route map is invalid' do
+        let(:route_map) { 'INVALID' }
+
+        it 'returns nil' do
+          expect(project.route_map_for(project.commit.sha)).to be_nil
+        end
+      end
+    end
+
+    context 'when there is no .gitlab/route-map.yml at the commit' do
+      it 'returns nil' do
+        expect(project.route_map_for(project.commit.parent.sha)).to be_nil
+      end
+    end
+  end
+
+  describe '#public_path_for_source_path' do
+    let(:project) { create(:project) }
+    let(:route_map) do
+      Gitlab::RouteMap.new(<<-MAP.strip_heredoc)
+        - source: /source/(.*)/
+          public: '\\1'
+      MAP
+    end
+    let(:sha) { project.commit.id }
+
+    context 'when there is a route map' do
+      before do
+        allow(project).to receive(:route_map_for).with(sha).and_return(route_map)
+      end
+
+      context 'when the source path is mapped' do
+        it 'returns the public path' do
+          expect(project.public_path_for_source_path('source/file.html', sha)).to eq('file.html')
+        end
+      end
+
+      context 'when the source path is not mapped' do
+        it 'returns nil' do
+          expect(project.public_path_for_source_path('file.html', sha)).to be_nil
+        end
+      end
+    end
+
+    context 'when there is no route map' do
+      before do
+        allow(project).to receive(:route_map_for).with(sha).and_return(nil)
+      end
+
+      it 'returns nil' do
+        expect(project.public_path_for_source_path('source/file.html', sha)).to be_nil
+      end
+    end
+  end
+
+  describe '#parent' do
+    let(:project) { create(:empty_project) }
+
+    it { expect(project.parent).to eq(project.namespace) }
+  end
+
+  describe '#parent_changed?' do
+    let(:project) { create(:empty_project) }
+
+    before { project.namespace_id = 7 }
+
+    it { expect(project.parent_changed?).to be_truthy }
+  end
+
   def enable_lfs
     allow(Gitlab.config.lfs).to receive(:enabled).and_return(true)
+  end
+
+  describe '#pages_url' do
+    let(:group) { create :group, name: 'Group' }
+    let(:nested_group) { create :group, parent: group }
+    let(:domain) { 'Example.com' }
+
+    subject { project.pages_url }
+
+    before do
+      allow(Settings.pages).to receive(:host).and_return(domain)
+      allow(Gitlab.config.pages).to receive(:url).and_return('http://example.com')
+    end
+
+    context 'top-level group' do
+      let(:project) { create :empty_project, namespace: group, name: project_name }
+
+      context 'group page' do
+        let(:project_name) { 'group.example.com' }
+
+        it { is_expected.to eq("http://group.example.com") }
+      end
+
+      context 'project page' do
+        let(:project_name) { 'Project' }
+
+        it { is_expected.to eq("http://group.example.com/project") }
+      end
+    end
+
+    context 'nested group' do
+      let(:project) { create :empty_project, namespace: nested_group, name: project_name }
+      let(:expected_url) { "http://group.example.com/#{nested_group.path}/#{project.path}" }
+
+      context 'group page' do
+        let(:project_name) { 'group.example.com' }
+
+        it { is_expected.to eq(expected_url) }
+      end
+
+      context 'project page' do
+        let(:project_name) { 'Project' }
+
+        it { is_expected.to eq(expected_url) }
+      end
+    end
   end
 end

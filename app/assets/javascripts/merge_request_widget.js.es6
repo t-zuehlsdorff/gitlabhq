@@ -2,7 +2,8 @@
 /* global notify */
 /* global notifyPermissions */
 /* global merge_request_widget */
-/* global Turbolinks */
+
+require('./smart_interval');
 
 ((global) => {
   var indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i += 1) { if (i in this && this[i] === item) return i; } return -1; };
@@ -50,6 +51,8 @@
       this.getCIStatus(false);
       this.retrieveSuccessIcon();
 
+      this.initMiniPipelineGraph();
+
       this.ciStatusInterval = new global.SmartInterval({
         callback: this.getCIStatus.bind(this, true),
         startingInterval: 10000,
@@ -65,17 +68,18 @@
         incrementByFactorOf: 15000,
         immediateExecution: true,
       });
+
       notifyPermissions();
     }
 
     MergeRequestWidget.prototype.clearEventListeners = function() {
-      return $(document).off('page:change.merge_request');
+      return $(document).off('DOMContentLoaded');
     };
 
     MergeRequestWidget.prototype.addEventListeners = function() {
       var allowedPages;
       allowedPages = ['show', 'commits', 'pipelines', 'changes'];
-      $(document).on('page:change.merge_request', (function(_this) {
+      $(document).on('DOMContentLoaded', (function(_this) {
         return function() {
           var page;
           page = $('body').data('page').split(':').last();
@@ -106,7 +110,7 @@
               urlSuffix = deleteSourceBranch ? '?deleted_source_branch=true' : '';
               return window.location.href = window.location.pathname + urlSuffix;
             } else if (data.merge_error) {
-              return _this.$widgetBody.html("<h4>" + data.merge_error + "</h4>");
+              return $('.mr-widget-body').html("<h4>" + data.merge_error + "</h4>");
             } else {
               callback = function() {
                 return merge_request_widget.mergeInProgress(deleteSourceBranch);
@@ -150,15 +154,25 @@
       return $.getJSON(this.opts.ci_status_url, (function(_this) {
         return function(data) {
           var message, status, title;
-          if (data.status === '') {
+          if (!data.status) {
             return;
           }
           if (data.environments && data.environments.length) _this.renderEnvironments(data.environments);
-          if (data.status !== _this.opts.ci_status && (data.status != null)) {
+          if (data.status !== _this.opts.ci_status ||
+              data.sha !== _this.opts.ci_sha ||
+              data.pipeline !== _this.opts.ci_pipeline) {
             _this.opts.ci_status = data.status;
             _this.showCIStatus(data.status);
             if (data.coverage) {
               _this.showCICoverage(data.coverage);
+            }
+            if (data.pipeline) {
+              _this.opts.ci_pipeline = data.pipeline;
+              _this.updatePipelineUrls(data.pipeline);
+            }
+            if (data.sha) {
+              _this.opts.ci_sha = data.sha;
+              _this.updateCommitUrls(data.sha);
             }
             if (showNotification) {
               status = _this.ciLabelForStatus(data.status);
@@ -225,17 +239,20 @@
           case "failed":
           case "canceled":
           case "not_found":
-            return this.setMergeButtonClass('btn-danger');
+            this.setMergeButtonClass('btn-danger');
+            break;
           case "running":
-            return this.setMergeButtonClass('btn-info');
+            this.setMergeButtonClass('btn-info');
+            break;
           case "success":
           case "success_with_warnings":
-            return this.setMergeButtonClass('btn-create');
+            this.setMergeButtonClass('btn-create');
         }
       } else {
         $('.ci_widget.ci-error').show();
-        return this.setMergeButtonClass('btn-danger');
+        this.setMergeButtonClass('btn-danger');
       }
+      this.initMiniPipelineGraph();
     };
 
     MergeRequestWidget.prototype.showCICoverage = function(coverage) {
@@ -246,6 +263,22 @@
 
     MergeRequestWidget.prototype.setMergeButtonClass = function(css_class) {
       return $('.js-merge-button,.accept-action .dropdown-toggle').removeClass('btn-danger btn-info btn-create').addClass(css_class);
+    };
+
+    MergeRequestWidget.prototype.updatePipelineUrls = function(id) {
+      const pipelineUrl = this.opts.pipeline_path;
+      $('.pipeline').text(`#${id}`).attr('href', [pipelineUrl, id].join('/'));
+    };
+
+    MergeRequestWidget.prototype.updateCommitUrls = function(id) {
+      const commitsUrl = this.opts.commits_path;
+      $('.js-commit-link').text(`#${id}`).attr('href', [commitsUrl, id].join('/'));
+    };
+
+    MergeRequestWidget.prototype.initMiniPipelineGraph = function() {
+      new gl.MiniPipelineGraph({
+        container: '.js-pipeline-inline-mr-widget-graph:visible',
+      }).bindEvents();
     };
 
     return MergeRequestWidget;

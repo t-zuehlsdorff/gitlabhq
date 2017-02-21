@@ -237,23 +237,24 @@ GFM will turn that reference into a link so you can navigate between them easily
 
 GFM will recognize the following:
 
-| input                  | references                   |
-|:-----------------------|:---------------------------  |
-| `@user_name`           | specific user                |
-| `@group_name`          | specific group               |
-| `@all`                 | entire team                  |
-| `#123`                 | issue                        |
-| `!123`                 | merge request                |
-| `$123`                 | snippet                      |
-| `~123`                 | label by ID                  |
-| `~bug`                 | one-word label by name       |
-| `~"feature request"`   | multi-word label by name     |
-| `%123`                 | milestone by ID              |
-| `%v1.23`               | one-word milestone by name   |
-| `%"release candidate"` | multi-word milestone by name |
-| `9ba12248`             | specific commit              |
-| `9ba12248...b19a04f5`  | commit range comparison      |
-| `[README](doc/README)` | repository file references   |
+| input                      | references                      |
+|:---------------------------|:--------------------------------|
+| `@user_name`               | specific user                   |
+| `@group_name`              | specific group                  |
+| `@all`                     | entire team                     |
+| `#123`                     | issue                           |
+| `!123`                     | merge request                   |
+| `$123`                     | snippet                         |
+| `~123`                     | label by ID                     |
+| `~bug`                     | one-word label by name          |
+| `~"feature request"`       | multi-word label by name        |
+| `%123`                     | milestone by ID                 |
+| `%v1.23`                   | one-word milestone by name      |
+| `%"release candidate"`     | multi-word milestone by name    |
+| `9ba12248`                 | specific commit                 |
+| `9ba12248...b19a04f5`      | commit range comparison         |
+| `[README](doc/README)`     | repository file references      |
+| `[README](doc/README#L13)` | repository file line references |
 
 GFM also recognizes certain cross-project references:
 
@@ -523,34 +524,11 @@ There are two ways to create links, inline-style and reference-style.
     [1]: http://slashdot.org
     [link text itself]: https://www.reddit.com
 
-[I'm an inline-style link](https://www.google.com)
-
-[I'm a reference-style link][Arbitrary case-insensitive reference text]
-
-[I'm a relative reference to a repository file](LICENSE)[^1]
-
-[I am an absolute reference within the repository](/doc/user/markdown.md)
-
-[I link to the Milestones page](/../milestones)
-
-[You can use numbers for reference-style link definitions][1]
-
-Or leave it empty and use the [link text itself][]
-
-Some text to show that the reference links can follow later.
-
-[arbitrary case-insensitive reference text]: https://www.mozilla.org
-[1]: http://slashdot.org
-[link text itself]: https://www.reddit.com
-
-**Note**
-
-Relative links do not allow referencing project files in a wiki page or wiki page in a project file. The reason for this is that, in GitLab, wiki is always a separate git repository. For example:
-
-`[I'm a reference-style link](style)`
-
+>**Note:**
+Relative links do not allow referencing project files in a wiki page or wiki
+page in a project file. The reason for this is that, in GitLab, wiki is always
+a separate Git repository. For example, `[I'm a reference-style link](style)`
 will point the link to `wikis/style` when the link is inside of a wiki markdown file.
-
 
 ### Images
 

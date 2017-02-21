@@ -9,6 +9,10 @@ require 'rspec/rails'
 require 'shoulda/matchers'
 require 'rspec/retry'
 
+if ENV['RSPEC_PROFILING_POSTGRES_URL'] || ENV['RSPEC_PROFILING']
+  require 'rspec_profiling/rspec'
+end
+
 if ENV['CI'] && !ENV['NO_KNAPSACK']
   require 'knapsack'
   Knapsack::Adapters::RSpecAdapter.bind
@@ -31,6 +35,7 @@ RSpec.configure do |config|
   config.include Warden::Test::Helpers, type: :request
   config.include LoginHelpers, type: :feature
   config.include SearchHelpers, type: :feature
+  config.include WaitForAjax, type: :feature
   config.include StubConfiguration
   config.include EmailHelpers, type: :mailer
   config.include TestEnv

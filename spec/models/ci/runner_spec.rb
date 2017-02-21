@@ -91,8 +91,7 @@ describe Ci::Runner, models: true do
   end
 
   describe '#can_pick?' do
-    let(:project) { create(:project) }
-    let(:pipeline) { create(:ci_pipeline, project: project) }
+    let(:pipeline) { create(:ci_pipeline) }
     let(:build) { create(:ci_build, pipeline: pipeline) }
     let(:runner) { create(:ci_runner) }
 
@@ -291,7 +290,7 @@ describe Ci::Runner, models: true do
       let!(:last_update) { runner.ensure_runner_queue_value }
 
       before do
-        runner.update(description: 'new runner')
+        Ci::UpdateRunnerService.new(runner).update(description: 'new runner')
       end
 
       it 'sets a new last_update value' do
@@ -319,10 +318,29 @@ describe Ci::Runner, models: true do
     end
   end
 
+  describe '#destroy' do
+    let(:runner) { create(:ci_runner) }
+
+    context 'when there is a tick in the queue' do
+      let!(:queue_key) { runner.send(:runner_queue_key) }
+
+      before do
+        runner.tick_runner_queue
+        runner.destroy
+      end
+
+      it 'cleans up the queue' do
+        Gitlab::Redis.with do |redis|
+          expect(redis.get(queue_key)).to be_nil
+        end
+      end
+    end
+  end
+
   describe '.assignable_for' do
     let(:runner) { create(:ci_runner) }
-    let(:project) { create(:project) }
-    let(:another_project) { create(:project) }
+    let(:project) { create(:empty_project) }
+    let(:another_project) { create(:empty_project) }
 
     before do
       project.runners << runner

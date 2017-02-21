@@ -1,7 +1,8 @@
 require 'spec_helper'
 
 describe Ci::Build, :models do
-  let(:project) { create(:project) }
+  let(:user) { create(:user) }
+  let(:project) { create(:project, :repository) }
   let(:build) { create(:ci_build, pipeline: pipeline) }
   let(:test_trace) { 'This is a test' }
 
@@ -207,17 +208,60 @@ describe Ci::Build, :models do
     end
 
     it 'expects to have retried builds instead the original ones' do
-      retried_rspec = Ci::Build.retry(rspec_test)
-      expect(staging.depends_on_builds.map(&:id)).to contain_exactly(build.id, retried_rspec.id, rubocop_test.id)
+      project.add_developer(user)
+
+      retried_rspec = Ci::Build.retry(rspec_test, user)
+
+      expect(staging.depends_on_builds.map(&:id))
+        .to contain_exactly(build.id, retried_rspec.id, rubocop_test.id)
     end
   end
 
   describe '#detailed_status' do
-    let(:user) { create(:user) }
-
     it 'returns a detailed status' do
       expect(build.detailed_status(user))
         .to be_a Gitlab::Ci::Status::Build::Cancelable
+    end
+  end
+
+  describe '#coverage_regex' do
+    subject { build.coverage_regex }
+
+    context 'when project has build_coverage_regex set' do
+      let(:project_regex) { '\(\d+\.\d+\) covered' }
+
+      before do
+        project.build_coverage_regex = project_regex
+      end
+
+      context 'and coverage_regex attribute is not set' do
+        it { is_expected.to eq(project_regex) }
+      end
+
+      context 'but coverage_regex attribute is also set' do
+        let(:build_regex) { 'Code coverage: \d+\.\d+' }
+
+        before do
+          build.coverage_regex = build_regex
+        end
+
+        it { is_expected.to eq(build_regex) }
+      end
+    end
+
+    context 'when neither project nor build has coverage regex set' do
+      it { is_expected.to be_nil }
+    end
+  end
+
+  describe '#update_coverage' do
+    context "regarding coverage_regex's value," do
+      it "saves the correct extracted coverage value" do
+        build.coverage_regex = '\(\d+.\d+\%\) covered'
+        allow(build).to receive(:trace) { 'Coverage 1033 / 1051 LOC (98.29%) covered' }
+        expect(build).to receive(:update_attributes).with(coverage: 98.29) { true }
+        expect(build.update_coverage).to be true
+      end
     end
   end
 
@@ -443,11 +487,11 @@ describe Ci::Build, :models do
         let!(:build) { create(:ci_build, :trace, :success, :artifacts) }
         subject { build.erased? }
 
-        context 'build has not been erased' do
+        context 'job has not been erased' do
           it { is_expected.to be_falsey }
         end
 
-        context 'build has been erased' do
+        context 'job has been erased' do
           before do
             build.erase
           end
@@ -772,12 +816,16 @@ describe Ci::Build, :models do
 
     subject { build.other_actions }
 
+    before do
+      project.add_developer(user)
+    end
+
     it 'returns other actions' do
       is_expected.to contain_exactly(other_build)
     end
 
     context 'when build is retried' do
-      let!(:new_build) { Ci::Build.retry(build) }
+      let!(:new_build) { Ci::Build.retry(build, user) }
 
       it 'does not return any of them' do
         is_expected.not_to include(build, new_build)
@@ -785,7 +833,7 @@ describe Ci::Build, :models do
     end
 
     context 'when other build is retried' do
-      let!(:retried_build) { Ci::Build.retry(other_build) }
+      let!(:retried_build) { Ci::Build.retry(other_build, user) }
 
       it 'returns a retried build' do
         is_expected.to contain_exactly(retried_build)
@@ -816,21 +864,29 @@ describe Ci::Build, :models do
   describe '#play' do
     let(:build) { create(:ci_build, :manual, pipeline: pipeline) }
 
-    subject { build.play }
-
-    it 'enqueues a build' do
-      is_expected.to be_pending
-      is_expected.to eq(build)
+    before do
+      project.add_developer(user)
     end
 
-    context 'for successful build' do
+    context 'when build is manual' do
+      it 'enqueues a build' do
+        new_build = build.play(user)
+
+        expect(new_build).to be_pending
+        expect(new_build).to eq(build)
+      end
+    end
+
+    context 'when build is passed' do
       before do
         build.update(status: 'success')
       end
 
       it 'creates a new build' do
-        is_expected.to be_pending
-        is_expected.not_to eq(build)
+        new_build = build.play(user)
+
+        expect(new_build).to be_pending
+        expect(new_build).not_to eq(build)
       end
     end
   end
@@ -1205,12 +1261,9 @@ describe Ci::Build, :models do
     end
 
     context 'when build has user' do
-      let(:user) { create(:user, username: 'starter') }
       let(:user_variables) do
-        [
-          { key: 'GITLAB_USER_ID',    value: user.id.to_s, public: true },
-          { key: 'GITLAB_USER_EMAIL', value: user.email,   public: true }
-        ]
+        [ { key: 'GITLAB_USER_ID',    value: user.id.to_s, public: true },
+          { key: 'GITLAB_USER_EMAIL', value: user.email,   public: true } ]
       end
 
       before do

@@ -175,7 +175,7 @@ class Admin::UsersController < Admin::ApplicationController
 
   def user_params_ce
     [
-      :admin,
+      :access_level,
       :avatar,
       :bio,
       :can_create_group,
@@ -194,7 +194,6 @@ class Admin::UsersController < Admin::ApplicationController
       :provider,
       :remember_me,
       :skype,
-      :theme_id,
       :twitter,
       :username,
       :website_url

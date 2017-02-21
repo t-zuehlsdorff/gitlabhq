@@ -45,7 +45,7 @@ module API
       if id =~ /^\d+$/
         Project.find_by(id: id)
       else
-        Project.find_with_namespace(id)
+        Project.find_by_full_path(id)
       end
     end
 
@@ -256,6 +256,14 @@ module API
     # project helpers
 
     def filter_projects(projects)
+      if params[:owned]
+        projects = projects.merge(current_user.owned_projects)
+      end
+
+      if params[:starred]
+        projects = projects.merge(current_user.starred_projects)
+      end
+
       if params[:search].present?
         projects = projects.search(params[:search])
       end
@@ -304,7 +312,7 @@ module API
         header['X-Sendfile'] = path
         body
       else
-        path
+        file path
       end
     end
 

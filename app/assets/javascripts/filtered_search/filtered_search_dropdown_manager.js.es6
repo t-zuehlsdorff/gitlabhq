@@ -2,14 +2,15 @@
 
 (() => {
   class FilteredSearchDropdownManager {
-    constructor() {
+    constructor(baseEndpoint = '') {
+      this.baseEndpoint = baseEndpoint.replace(/\/$/, '');
       this.tokenizer = gl.FilteredSearchTokenizer;
       this.filteredSearchInput = document.querySelector('.filtered-search');
 
       this.setupMapping();
 
       this.cleanupWrapper = this.cleanup.bind(this);
-      document.addEventListener('page:fetch', this.cleanupWrapper);
+      document.addEventListener('beforeunload', this.cleanupWrapper);
     }
 
     cleanup() {
@@ -20,7 +21,7 @@
 
       this.setupMapping();
 
-      document.removeEventListener('page:fetch', this.cleanupWrapper);
+      document.removeEventListener('beforeunload', this.cleanupWrapper);
     }
 
     setupMapping() {
@@ -38,13 +39,13 @@
         milestone: {
           reference: null,
           gl: 'DropdownNonUser',
-          extraArguments: ['milestones.json', '%'],
+          extraArguments: [`${this.baseEndpoint}/milestones.json`, '%'],
           element: document.querySelector('#js-dropdown-milestone'),
         },
         label: {
           reference: null,
           gl: 'DropdownNonUser',
-          extraArguments: ['labels.json', '~'],
+          extraArguments: [`${this.baseEndpoint}/labels.json`, '~'],
           element: document.querySelector('#js-dropdown-label'),
         },
         hint: {

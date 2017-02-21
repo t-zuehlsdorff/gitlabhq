@@ -27,18 +27,20 @@
             = icon("search", class: "search-icon")
 
           .dropdown
-            - toggle_text = 'Search for Namespace'
+            - toggle_text = 'Namespace'
             - if params[:namespace_id].present?
               - namespace = Namespace.find(params[:namespace_id])
-              - toggle_text = "#{namespace.kind}: #{namespace.path}"
+              - toggle_text = "#{namespace.kind}: #{namespace.full_path}"
             = dropdown_toggle(toggle_text, { toggle: 'dropdown' }, { toggle_class: 'js-namespace-select large' })
             .dropdown-menu.dropdown-select.dropdown-menu-align-right
               = dropdown_title('Namespaces')
               = dropdown_filter("Search for Namespace")
               = dropdown_content
               = dropdown_loading
-
-          = button_tag "Search", class: "btn btn-primary btn-search"
+          = render 'shared/projects/dropdown'
+          = link_to new_project_path, class: 'btn btn-new' do
+            New Project
+          = button_tag "Search", class: "btn btn-primary btn-search hide"
 
     %ul.nav-links
       - opts = params[:visibility_level].present? ? {} : { page: admin_projects_path }
@@ -46,20 +48,15 @@
         = link_to admin_projects_path do
           All
 
-      = nav_link(html_options: { class: params[:visibility_level] == Gitlab::VisibilityLevel::PRIVATE.to_s ? 'active' : '' }) do
+      = nav_link(html_options: { class: active_when(params[:visibility_level] == Gitlab::VisibilityLevel::PRIVATE.to_s) }) do
         = link_to admin_projects_path(visibility_level: Gitlab::VisibilityLevel::PRIVATE) do
           Private
-      = nav_link(html_options: { class: params[:visibility_level] == Gitlab::VisibilityLevel::INTERNAL.to_s ? 'active' : '' }) do
+      = nav_link(html_options: { class: active_when(params[:visibility_level] == Gitlab::VisibilityLevel::INTERNAL.to_s) }) do
         = link_to admin_projects_path(visibility_level: Gitlab::VisibilityLevel::INTERNAL) do
           Internal
-      = nav_link(html_options: { class: params[:visibility_level] == Gitlab::VisibilityLevel::PUBLIC.to_s ? 'active' : '' }) do
+      = nav_link(html_options: { class: active_when(params[:visibility_level] == Gitlab::VisibilityLevel::PUBLIC.to_s) }) do
         = link_to admin_projects_path(visibility_level: Gitlab::VisibilityLevel::PUBLIC) do
           Public
-
-    .nav-controls
-      = render 'shared/projects/dropdown'
-      = link_to new_project_path, class: 'btn btn-new' do
-        New Project
 
   .projects-list-holder
     - if @projects.any?

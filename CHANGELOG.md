@@ -2,6 +2,55 @@
 documentation](doc/development/changelog.md) for instructions on adding your own
 entry.
 
+## 8.16.6 (2017-02-17)
+
+- API: Fix file downloading. !0 (8267)
+- Reduce hits to LDAP on Git HTTP auth by reordering auth mechanisms. !8752
+- Fix filtered search user autocomplete for gitlab instances that are hosted on a subdirectory. !8891
+- Fix wrong call to ProjectCacheWorker.perform. !8910
+- Remove unnecessary queries for .atom and .json in Dashboard::ProjectsController#index. !8956
+- Fix broken anchor links when special characters are used. !8961 (Andrey Krivko)
+- Do not display deploy keys in user's own ssh keys list. !9024
+- Show merge errors in merge request widget. !9229
+- Don't delete assigned MRs/issues when user is deleted.
+- backport of EE fix !954.
+- Refresh authorizations when transferring projects.
+- Don't use backup Active Record connections for Sidekiq.
+- Check public snippets for spam.
+
+## 8.16.5 (2017-02-14)
+
+- Patch Asciidocs rendering to block XSS.
+- Fix XSS vulnerability in SVG attachments.
+- Prevent the GitHub importer from assigning labels and comments to merge requests or issues belonging to other projects.
+- Patch XSS vulnerability in RDOC support.
+
+## 8.16.4 (2017-02-02)
+
+- Support non-ASCII characters in GFM autocomplete. !8729
+- Fix search bar search param encoding. !8753
+- Fix project name label's for reference in project settings. !8795
+- Fix filtering with multiple words. !8830
+- Fixed services form cancel not redirecting back the integrations settings view. !8843
+- Fix filtering usernames with multiple words. !8851
+- Improve performance of slash commands. !8876
+- Remove old project members when retrying an export.
+- Fix permalink discussion note being collapsed.
+- Add project ID index to `project_authorizations` table to optimize queries.
+- Check public snippets for spam.
+- 19164 Add settings dropdown to mobile screens.
+
+## 8.16.3 (2017-01-27)
+
+- Add caching of droplab ajax requests. !8725
+- Fix access to the wiki code via HTTP when repository feature disabled. !8758
+- Revert 3f17f29a. !8785
+- Fix race conditions for AuthorizedProjectsWorker.
+- Fix autocomplete initial undefined state.
+- Fix Error 500 when repositories contain annotated tags pointing to blobs.
+- Fix /explore sorting.
+- Fixed label dropdown toggle text not correctly updating.
+
 ## 8.16.2 (2017-01-25)
 
 - allow issue filter bar to be operated with mouse only. !8681
@@ -18,7 +67,7 @@ entry.
 - Prevent users from deleting system deploy keys via the project deploy key API.
 - Upgrade omniauth gem to 1.3.2.
 
-## 8.16.0 (2017-02-22)
+## 8.16.0 (2017-01-22)
 
 - Add LDAP Rake task to rename a provider. !2181
 - Validate label's title length. !5767 (Tomáš Kukrál)
@@ -147,6 +196,17 @@ entry.
 - 26504 Fix styling of MR jump to discussion button.
 - Add margin to markdown math blocks.
 - Add hover state to MR comment reply button.
+
+## 8.15.7 (2017-02-15)
+
+- No changes.
+
+## 8.15.6 (2017-02-14)
+
+- Patch Asciidocs rendering to block XSS.
+- Fix XSS vulnerability in SVG attachments.
+- Prevent the GitHub importer from assigning labels and comments to merge requests or issues belonging to other projects.
+- Patch XSS vulnerability in RDOC support.
 
 ## 8.15.4 (2017-01-09)
 
@@ -410,6 +470,17 @@ entry.
 - Rename groups with .git in the end of the path. !8199
 - Whitelist next project names: help, ci, admin, search. !8227
 - Adds back CSS for progress-bars. !8237
+
+## 8.14.10 (2017-02-15)
+
+- No changes.
+
+## 8.14.9 (2017-02-14)
+
+- Patch Asciidocs rendering to block XSS.
+- Fix XSS vulnerability in SVG attachments.
+- Prevent the GitHub importer from assigning labels and comments to merge requests or issues belonging to other projects.
+- Patch XSS vulnerability in RDOC support.
 
 ## 8.14.8 (2017-01-25)
 

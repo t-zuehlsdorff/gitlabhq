@@ -37,7 +37,7 @@ module ApplicationHelper
       if project_id.is_a?(Project)
         project_id
       else
-        Project.find_with_namespace(project_id)
+        Project.find_by_full_path(project_id)
       end
 
     if project.avatar_url
@@ -295,5 +295,14 @@ module ApplicationHelper
 
   def page_class
     "issue-boards-page" if current_controller?(:boards)
+  end
+
+  # Returns active css class when condition returns true
+  # otherwise returns nil.
+  #
+  # Example:
+  #   %li{ class: active_when(params[:filter] == '1') }
+  def active_when(condition)
+    'active' if condition
   end
 end

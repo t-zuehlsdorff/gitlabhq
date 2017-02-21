@@ -1,6 +1,5 @@
-//= require vue
-//= require timeago
-//= require environments/components/environment_item
+window.timeago = require('timeago.js');
+const EnvironmentItem = require('~/environments/components/environment_item');
 
 describe('Environment item', () => {
   preloadFixtures('static/environments/table.html.raw');
@@ -15,33 +14,16 @@ describe('Environment item', () => {
     beforeEach(() => {
       mockItem = {
         name: 'review',
-        children: [
-          {
-            name: 'review-app',
-            id: 1,
-            state: 'available',
-            external_url: '',
-            last_deployment: {},
-            created_at: '2016-11-07T11:11:16.525Z',
-            updated_at: '2016-11-10T15:55:58.778Z',
-          },
-          {
-            name: 'production',
-            id: 2,
-            state: 'available',
-            external_url: '',
-            last_deployment: {},
-            created_at: '2016-11-07T11:11:16.525Z',
-            updated_at: '2016-11-10T15:55:58.778Z',
-          },
-        ],
+        folderName: 'review',
+        size: 3,
+        isFolder: true,
+        environment_path: 'url',
       };
 
-      component = new window.gl.environmentsList.EnvironmentItem({
+      component = new EnvironmentItem({
         el: document.querySelector('tr#environment-row'),
         propsData: {
           model: mockItem,
-          toggleRow: () => {},
           canCreateDeployment: false,
           canReadEnvironment: true,
         },
@@ -54,7 +36,7 @@ describe('Environment item', () => {
     });
 
     it('Should render the number of children in a badge', () => {
-      expect(component.$el.querySelector('.folder-name .badge').textContent).toContain(mockItem.children.length);
+      expect(component.$el.querySelector('.folder-name .badge').textContent).toContain(mockItem.size);
     });
   });
 
@@ -64,8 +46,8 @@ describe('Environment item', () => {
 
     beforeEach(() => {
       environment = {
-        id: 31,
         name: 'production',
+        size: 1,
         state: 'stopped',
         external_url: 'http://external.com',
         environment_type: null,
@@ -120,17 +102,16 @@ describe('Environment item', () => {
             },
           ],
         },
-        'stoppable?': true,
+        'stop_action?': true,
         environment_path: 'root/ci-folders/environments/31',
         created_at: '2016-11-07T11:11:16.525Z',
         updated_at: '2016-11-10T15:55:58.778Z',
       };
 
-      component = new window.gl.environmentsList.EnvironmentItem({
+      component = new EnvironmentItem({
         el: document.querySelector('tr#environment-row'),
         propsData: {
           model: environment,
-          toggleRow: () => {},
           canCreateDeployment: true,
           canReadEnvironment: true,
         },

@@ -222,6 +222,7 @@ CommitStatus:
 - queued_at
 - token
 - lock_version
+- coverage_regex
 Ci::Variable:
 - id
 - project_id
@@ -349,8 +350,8 @@ LabelPriority:
 Timelog:
 - id
 - time_spent
-- trackable_id
-- trackable_type
+- merge_request_id
+- issue_id
 - user_id
 - created_at
 - updated_at

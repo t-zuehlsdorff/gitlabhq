@@ -78,8 +78,8 @@ describe 'Issues', feature: true do
         fill_in 'issue_description', with: 'bug description'
         find('#issuable-due-date').click
 
-        page.within '.ui-datepicker' do
-          click_link date.day
+        page.within '.pika-single' do
+          click_button date.day
         end
 
         expect(find('#issuable-due-date').value).to eq date.to_s
@@ -110,8 +110,8 @@ describe 'Issues', feature: true do
         fill_in 'issue_description', with: 'bug description'
         find('#issuable-due-date').click
 
-        page.within '.ui-datepicker' do
-          click_link date.day
+        page.within '.pika-single' do
+          click_button date.day
         end
 
         expect(find('#issuable-due-date').value).to eq date.to_s
@@ -382,7 +382,9 @@ describe 'Issues', feature: true do
     it 'changes incoming email address token', js: true do
       find('.issue-email-modal-btn').click
       previous_token = find('input#issue_email').value
-      find('.incoming-email-token-reset').click
+      find('.incoming-email-token-reset').trigger('click')
+
+      wait_for_ajax
 
       expect(page).to have_no_field('issue_email', with: previous_token)
       new_token = project1.new_issue_address(@user.reload)
@@ -624,8 +626,8 @@ describe 'Issues', feature: true do
         page.within '.due_date' do
           click_link 'Edit'
 
-          page.within '.ui-datepicker-calendar' do
-            click_link date.day
+          page.within '.pika-single' do
+            click_button date.day
           end
 
           wait_for_ajax
@@ -635,11 +637,13 @@ describe 'Issues', feature: true do
       end
 
       it 'removes due date from issue' do
+        date = Date.today.at_beginning_of_month + 2.days
+
         page.within '.due_date' do
           click_link 'Edit'
 
-          page.within '.ui-datepicker-calendar' do
-            first('.ui-state-default').click
+          page.within '.pika-single' do
+            click_button date.day
           end
 
           wait_for_ajax

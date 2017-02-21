@@ -1,7 +1,7 @@
 /* eslint-disable no-new */
 
-//= require flash
-//= require mini_pipeline_graph_dropdown
+require('~/flash');
+require('~/mini_pipeline_graph_dropdown');
 
 (() => {
   describe('Mini Pipeline Graph Dropdown', () => {
@@ -31,7 +31,7 @@
       it('should call getBuildsList', () => {
         const getBuildsListSpy = spyOn(gl.MiniPipelineGraph.prototype, 'getBuildsList').and.callFake(function () {});
 
-        new gl.MiniPipelineGraph({ container: '.js-builds-dropdown-tests' });
+        new gl.MiniPipelineGraph({ container: '.js-builds-dropdown-tests' }).bindEvents();
 
         document.querySelector('.js-builds-dropdown-button').click();
 
@@ -41,7 +41,7 @@
       it('should make a request to the endpoint provided in the html', () => {
         const ajaxSpy = spyOn($, 'ajax').and.callFake(function () {});
 
-        new gl.MiniPipelineGraph({ container: '.js-builds-dropdown-tests' });
+        new gl.MiniPipelineGraph({ container: '.js-builds-dropdown-tests' }).bindEvents();
 
         document.querySelector('.js-builds-dropdown-button').click();
         expect(ajaxSpy.calls.allArgs()[0][0].url).toEqual('foobar');

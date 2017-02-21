@@ -217,7 +217,7 @@ class NotificationService
     recipients = reject_unsubscribed_users(recipients, note.noteable)
     recipients = reject_users_without_access(recipients, note.noteable)
 
-    recipients.delete(note.author)
+    recipients.delete(note.author) unless note.author.notified_of_own_activity?
     recipients = recipients.uniq
 
     notify_method = "note_#{note.to_ability_name}_email".to_sym
@@ -327,8 +327,9 @@ class NotificationService
     recipients ||= build_recipients(
       pipeline,
       pipeline.project,
-      nil, # The acting user, who won't be added to recipients
-      action: pipeline.status).map(&:notification_email)
+      pipeline.user,
+      action: pipeline.status,
+      skip_current_user: false).map(&:notification_email)
 
     if recipients.any?
       mailer.public_send(email_template, pipeline, recipients).deliver_later
@@ -365,7 +366,7 @@ class NotificationService
     users = users_with_global_level_watch([users_with_project_level_global, users_with_group_level_global].flatten.uniq)
 
     users_with_project_setting = select_project_member_setting(project, users_with_project_level_global, users)
-    users_with_group_setting = select_group_member_setting(project, project_members, users_with_group_level_global, users)
+    users_with_group_setting = select_group_member_setting(project.group, project_members, users_with_group_level_global, users)
 
     User.where(id: users_with_project_setting.concat(users_with_group_setting).uniq).to_a
   end
@@ -415,8 +416,8 @@ class NotificationService
   end
 
   # Build a list of users based on group notification settings
-  def select_group_member_setting(project, project_members, global_setting, users_global_level_watch)
-    uids = notification_settings_for(project, :watch)
+  def select_group_member_setting(group, project_members, global_setting, users_global_level_watch)
+    uids = notification_settings_for(group, :watch)
 
     # Group setting is watch, add to users list if user is not project member
     users = []
@@ -473,7 +474,7 @@ class NotificationService
 
       setting = user.notification_settings_for(project)
 
-      if !setting && project.group
+      if project.group && (setting.nil? || setting.global?)
         setting = user.notification_settings_for(project.group)
       end
 
@@ -627,7 +628,7 @@ class NotificationService
     recipients = reject_unsubscribed_users(recipients, target)
     recipients = reject_users_without_access(recipients, target)
 
-    recipients.delete(current_user) if skip_current_user
+    recipients.delete(current_user) if skip_current_user && !current_user.notified_of_own_activity?
 
     recipients.uniq
   end
@@ -636,7 +637,7 @@ class NotificationService
     recipients = add_labels_subscribers([], project, target, labels: labels)
     recipients = reject_unsubscribed_users(recipients, target)
     recipients = reject_users_without_access(recipients, target)
-    recipients.delete(current_user)
+    recipients.delete(current_user) unless current_user.notified_of_own_activity?
     recipients.uniq
   end
 

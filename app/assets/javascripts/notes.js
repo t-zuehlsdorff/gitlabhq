@@ -1,17 +1,17 @@
 /* eslint-disable no-restricted-properties, func-names, space-before-function-paren, no-var, prefer-rest-params, wrap-iife, no-use-before-define, camelcase, no-unused-expressions, quotes, max-len, one-var, one-var-declaration-per-line, default-case, prefer-template, consistent-return, no-alert, no-return-assign, no-param-reassign, prefer-arrow-callback, no-else-return, comma-dangle, no-new, brace-style, no-lonely-if, vars-on-top, no-unused-vars, no-sequences, no-shadow, newline-per-chained-call, no-useless-escape */
 /* global Flash */
-/* global GLForm */
 /* global Autosave */
 /* global ResolveService */
 /* global mrRefreshWidgetUrl */
 
-/*= require autosave */
-/*= require autosize */
-/*= require dropzone */
-/*= require dropzone_input */
-/*= require gfm_auto_complete */
-/*= require jquery.atwho */
-/*= require task_list */
+require('./autosave');
+window.autosize = require('vendor/autosize');
+window.Dropzone = require('dropzone');
+require('./dropzone_input');
+require('./gfm_auto_complete');
+require('vendor/jquery.caret'); // required by jquery.atwho
+require('vendor/jquery.atwho');
+require('./task_list');
 
 (function() {
   var bind = function(fn, me) { return function() { return fn.apply(me, arguments); }; };
@@ -51,7 +51,11 @@
       this.addBinding();
       this.setPollingInterval();
       this.setupMainTargetNoteForm();
-      this.initTaskList();
+      this.taskList = new gl.TaskList({
+        dataType: 'note',
+        fieldName: 'note',
+        selector: '.notes'
+      });
       this.collapseLongCommitList();
 
       // We are in the Merge Requests page so we need another edit form for Changes tab
@@ -125,8 +129,6 @@
       $(document).off("keydown", ".js-note-text");
       $(document).off('click', '.js-comment-resolve-button');
       $(document).off("click", '.system-note-commit-list-toggler');
-      $('.note .js-task-list-container').taskList('disable');
-      return $(document).off('tasklist:changed', '.note .js-task-list-container');
     };
 
     Notes.prototype.keydownNoteText = function(e) {
@@ -286,7 +288,7 @@
         // Update datetime format on the recent note
         gl.utils.localTimeAgo($notesList.find("#note_" + note.id + " .js-timeago"), false);
         this.collapseLongCommitList();
-        this.initTaskList();
+        this.taskList.init();
         this.refresh();
         return this.updateNotesCount(1);
       }
@@ -420,7 +422,7 @@
 
     Notes.prototype.setupNoteForm = function(form) {
       var textarea;
-      new GLForm(form);
+      new gl.GLForm(form);
       textarea = form.find(".js-note-text");
       return new Autosave(textarea, ["Note", form.find("#note_noteable_type").val(), form.find("#note_noteable_id").val(), form.find("#note_commit_id").val(), form.find("#note_type").val(), form.find("#note_line_code").val(), form.find("#note_position").val()]);
     };
@@ -455,7 +457,7 @@
         var mergeRequestId = $form.data('noteable-iid');
 
         if (ResolveService != null) {
-          ResolveService.toggleResolveForDiscussion(projectPath, mergeRequestId, discussionId);
+          ResolveService.toggleResolveForDiscussion(mergeRequestId, discussionId);
         }
       }
 
@@ -863,15 +865,6 @@
       }
     };
 
-    Notes.prototype.initTaskList = function() {
-      this.enableTaskList();
-      return $(document).on('tasklist:changed', '.note .js-task-list-container', this.updateTaskList.bind(this));
-    };
-
-    Notes.prototype.enableTaskList = function() {
-      return $('.note .js-task-list-container').taskList('enable');
-    };
-
     Notes.prototype.putEditFormInPlace = function($el) {
       var $editForm = $(this.getEditFormSelector($el));
       var $note = $el.closest('.note');
@@ -884,7 +877,7 @@
       var targetId = $originalContentEl.data('target-id');
       var targetType = $originalContentEl.data('target-type');
 
-      new GLForm($editForm.find('form'));
+      new gl.GLForm($editForm.find('form'));
 
       $editForm.find('form')
         .attr('action', postUrl)
@@ -894,17 +887,6 @@
       $editForm.find('.js-note-text').focus().val(originalContent);
       $editForm.find('.js-md-write-button').trigger('click');
       $editForm.find('.referenced-users').hide();
-    };
-
-    Notes.prototype.updateTaskList = function(e) {
-      var $target = $(e.target);
-      var $list = $target.closest('.js-task-list-container');
-      var $editForm = $(this.getEditFormSelector($target));
-      var $note = $list.closest('.note');
-
-      this.putEditFormInPlace($list);
-      $editForm.find('#note_note').val($note.find('.original-task-list').val());
-      $('form', $list).submit();
     };
 
     Notes.prototype.updateNotesCount = function(updateCount) {
@@ -923,9 +905,10 @@
     };
 
     Notes.prototype.toggleCommitList = function(e) {
-      const $element = $(e.target);
+      const $element = $(e.currentTarget);
       const $closestSystemCommitList = $element.siblings('.system-note-commit-list');
 
+      $element.find('.fa').toggleClass('fa-angle-down').toggleClass('fa-angle-up');
       $closestSystemCommitList.toggleClass('hide-shade');
     };
 

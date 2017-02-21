@@ -60,6 +60,18 @@
   }
 }
 
+.todos-list > .todo.todo-pending.done-reversible {
+  background-color: $gray-light;
+
+  &:hover {
+    border-color: $border-color;
+  }
+
+  .title {
+    font-weight: normal;
+  }
+}
+
 .todo-item {
   .todo-title {
     @include str-truncated(calc(100% - 174px));
@@ -74,6 +86,10 @@
     padding: 0 5px;
     line-height: inherit;
     font-size: 14px;
+  }
+
+  .action-name {
+    font-weight: normal;
   }
 
   .todo-body {

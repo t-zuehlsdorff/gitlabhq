@@ -1,5 +1,6 @@
 /* eslint-disable comma-dangle, class-methods-use-this, no-underscore-dangle, no-param-reassign, no-unused-vars, consistent-return, func-names, space-before-function-paren, max-len */
 /* global Flash */
+/* global Sortable */
 
 ((global) => {
   class LabelManager {
@@ -8,11 +9,13 @@
       this.prioritizedLabels = prioritizedLabels || $('.js-prioritized-labels');
       this.otherLabels = otherLabels || $('.js-other-labels');
       this.errorMessage = 'Unable to update label prioritization at this time';
-      this.prioritizedLabels.sortable({
-        items: 'li',
-        placeholder: 'list-placeholder',
-        axis: 'y',
-        update: this.onPrioritySortUpdate.bind(this)
+      this.emptyState = document.querySelector('#js-priority-labels-empty-state');
+      this.sortable = Sortable.create(this.prioritizedLabels.get(0), {
+        filter: '.empty-message',
+        forceFallback: true,
+        fallbackClass: 'is-dragging',
+        dataIdAttr: 'data-id',
+        onUpdate: this.onPrioritySortUpdate.bind(this),
       });
       this.bindEvents();
     }
@@ -29,7 +32,12 @@
       const action = $btn.parents('.js-prioritized-labels').length ? 'remove' : 'add';
       const $tooltip = $(`#${$btn.find('.has-tooltip:visible').attr('aria-describedby')}`);
       $tooltip.tooltip('destroy');
-      return _this.toggleLabelPriority($label, action);
+      _this.toggleLabelPriority($label, action);
+      _this.toggleEmptyState($label, $btn, action);
+    }
+
+    toggleEmptyState($label, $btn, action) {
+      this.emptyState.classList.toggle('hidden', !!this.prioritizedLabels[0].querySelector(':scope > li'));
     }
 
     toggleLabelPriority($label, action, persistState) {
@@ -45,13 +53,13 @@
         $target = this.otherLabels;
         $from = this.prioritizedLabels;
       }
-      if ($from.find('li').length === 1) {
+      $label.detach().appendTo($target);
+      if ($from.find('li').length) {
         $from.find('.empty-message').removeClass('hidden');
       }
-      if (!$target.find('li').length) {
+      if ($target.find('> li:not(.empty-message)').length) {
         $target.find('.empty-message').addClass('hidden');
       }
-      $label.detach().appendTo($target);
       // Return if we are not persisting state
       if (!persistState) {
         return;
@@ -95,8 +103,12 @@
 
     getSortedLabelsIds() {
       const sortedIds = [];
-      this.prioritizedLabels.find('li').each(function() {
-        sortedIds.push($(this).data('id'));
+      this.prioritizedLabels.find('> li').each(function() {
+        const id = $(this).data('id');
+
+        if (id) {
+          sortedIds.push(id);
+        }
       });
       return sortedIds;
     }

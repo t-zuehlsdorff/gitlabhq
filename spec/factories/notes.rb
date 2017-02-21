@@ -4,7 +4,7 @@ include ActionDispatch::TestProcess
 
 FactoryGirl.define do
   factory :note do
-    project
+    project factory: :empty_project
     note "Note"
     author
     on_issue
@@ -16,10 +16,16 @@ FactoryGirl.define do
     factory :note_on_personal_snippet,   traits: [:on_personal_snippet]
     factory :system_note,                traits: [:system]
 
-    factory :legacy_diff_note_on_commit, traits: [:on_commit, :legacy_diff_note], class: LegacyDiffNote
-    factory :legacy_diff_note_on_merge_request, traits: [:on_merge_request, :legacy_diff_note], class: LegacyDiffNote
+    factory :legacy_diff_note_on_commit, traits: [:on_commit, :legacy_diff_note], class: LegacyDiffNote do
+      association :project, :repository
+    end
+
+    factory :legacy_diff_note_on_merge_request, traits: [:on_merge_request, :legacy_diff_note], class: LegacyDiffNote do
+      association :project, :repository
+    end
 
     factory :diff_note_on_merge_request, traits: [:on_merge_request], class: DiffNote do
+      association :project, :repository
       position do
         Gitlab::Diff::Position.new(
           old_path: "files/ruby/popen.rb",
@@ -37,6 +43,7 @@ FactoryGirl.define do
     end
 
     factory :diff_note_on_commit, traits: [:on_commit], class: DiffNote do
+      association :project, :repository
       position do
         Gitlab::Diff::Position.new(
           old_path: "files/ruby/popen.rb",
@@ -49,6 +56,7 @@ FactoryGirl.define do
     end
 
     trait :on_commit do
+      association :project, :repository
       noteable nil
       noteable_type 'Commit'
       noteable_id nil
@@ -89,7 +97,11 @@ FactoryGirl.define do
     end
 
     trait :with_attachment do
-      attachment { fixture_file_upload(Rails.root + "spec/fixtures/dk.png", "`/png") }
+      attachment { fixture_file_upload(Rails.root + "spec/fixtures/dk.png", "image/png") }
+    end
+
+    trait :with_svg_attachment do
+      attachment { fixture_file_upload(Rails.root + "spec/fixtures/unsanitized.svg", "image/svg+xml") }
     end
   end
 end

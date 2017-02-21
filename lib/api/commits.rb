@@ -54,7 +54,7 @@ module API
         authorize! :push_code, user_project
 
         attrs = declared_params
-        attrs[:source_branch] = attrs[:branch_name]
+        attrs[:start_branch] = attrs[:branch_name]
         attrs[:target_branch] = attrs[:branch_name]
         attrs[:actions].map! do |action|
           action[:action] = action[:action].to_sym
@@ -114,7 +114,7 @@ module API
         commit = user_project.commit(params[:sha])
 
         not_found! 'Commit' unless commit
-        notes = Note.where(commit_id: commit.id).order(:created_at)
+        notes = user_project.notes.where(commit_id: commit.id).order(:created_at)
 
         present paginate(notes), with: Entities::CommitNote
       end
@@ -139,8 +139,6 @@ module API
         commit_params = {
           commit: commit,
           create_merge_request: false,
-          source_project: user_project,
-          source_branch: commit.cherry_pick_branch_name,
           target_branch: params[:branch]
         }
 

@@ -6,19 +6,25 @@ module MergeRequests
   # Executed when you do merge via GitLab UI
   #
   class MergeService < MergeRequests::BaseService
-    attr_reader :merge_request
+    attr_reader :merge_request, :source
 
     def execute(merge_request)
       @merge_request = merge_request
 
-      return log_merge_error('Merge request is not mergeable', true) unless @merge_request.mergeable?
+      unless @merge_request.mergeable?
+        return log_merge_error('Merge request is not mergeable', save_message_on_model: true)
+      end
+
+      @source = find_merge_source
+
+      unless @source
+        return log_merge_error('No source for merge', save_message_on_model: true)
+      end
 
       merge_request.in_locked_state do
         if commit
           after_merge
           success
-        else
-          log_merge_error('Can not merge changes', true)
         end
       end
     end
@@ -34,16 +40,16 @@ module MergeRequests
         committer: committer
       }
 
-      commit_id = repository.merge(current_user, merge_request, options)
+      commit_id = repository.merge(current_user, source, merge_request, options)
 
       if commit_id
         merge_request.update(merge_commit_sha: commit_id)
       else
-        merge_request.update(merge_error: 'Conflicts detected during merge')
+        log_merge_error('Conflicts detected during merge', save_message_on_model: true)
         false
       end
     rescue GitHooksService::PreReceiveError => e
-      merge_request.update(merge_error: e.message)
+      log_merge_error(e.message, save_message_on_model: true)
       false
     rescue StandardError => e
       merge_request.update(merge_error: "Something went wrong during merge: #{e.message}")
@@ -66,16 +72,18 @@ module MergeRequests
       @merge_request.force_remove_source_branch? ? @merge_request.author : current_user
     end
 
-    def log_merge_error(message, http_error = false)
+    def log_merge_error(message, save_message_on_model: false)
       Rails.logger.error("MergeService ERROR: #{merge_request_info} - #{message}")
 
-      error(message) if http_error
+      @merge_request.update(merge_error: message) if save_message_on_model
     end
 
     def merge_request_info
-      project = merge_request.project
+      merge_request.to_reference(full: true)
+    end
 
-      "#{project.to_reference}#{merge_request.to_reference}"
+    def find_merge_source
+      merge_request.diff_head_sha
     end
   end
 end

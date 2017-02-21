@@ -1,6 +1,5 @@
 /* eslint-disable func-names, space-before-function-paren, no-var, prefer-rest-params, wrap-iife, no-use-before-define, no-param-reassign, quotes, yoda, no-else-return, consistent-return, comma-dangle, object-shorthand, prefer-template, one-var, one-var-declaration-per-line, no-unused-vars, max-len, vars-on-top */
 /* global Breakpoints */
-/* global Turbolinks */
 
 (function() {
   var bind = function(fn, me) { return function() { return fn.apply(me, arguments); }; };
@@ -68,16 +67,8 @@
 
     Build.prototype.initSidebar = function() {
       this.$sidebar = $('.js-build-sidebar');
-      this.sidebarTranslationLimits = {
-        min: $('.navbar-gitlab').outerHeight() + $('.layout-nav').outerHeight()
-      };
-      this.sidebarTranslationLimits.max = this.sidebarTranslationLimits.min + $('.scrolling-tabs-container').outerHeight();
-      this.$sidebar.css({
-        top: this.sidebarTranslationLimits.max
-      });
       this.$sidebar.niceScroll();
       this.$document.off('click', '.js-sidebar-build-toggle').on('click', '.js-sidebar-build-toggle', this.toggleSidebar);
-      this.$document.off('scroll.translateSidebar').on('scroll.translateSidebar', this.translateSidebar.bind(this));
     };
 
     Build.prototype.location = function() {
@@ -127,7 +118,7 @@
                 pageUrl += DOWN_BUILD_TRACE;
               }
 
-              return Turbolinks.visit(pageUrl);
+              return gl.utils.visitUrl(pageUrl);
             }
           };
         })(this)
@@ -232,14 +223,6 @@
       return bootstrapBreakpoint === 'xs' || bootstrapBreakpoint === 'sm';
     };
 
-    Build.prototype.translateSidebar = function(e) {
-      var newPosition = this.sidebarTranslationLimits.max - (document.body.scrollTop || document.documentElement.scrollTop);
-      if (newPosition < this.sidebarTranslationLimits.min) newPosition = this.sidebarTranslationLimits.min;
-      this.$sidebar.css({
-        top: newPosition
-      });
-    };
-
     Build.prototype.toggleSidebar = function(shouldHide) {
       var shouldShow = typeof shouldHide === 'boolean' ? !shouldHide : undefined;
       this.$buildScroll.toggleClass('sidebar-expanded', shouldShow)
@@ -286,7 +269,7 @@
       e.preventDefault();
       $currentTarget = $(e.currentTarget);
       $.scrollTo($currentTarget.attr('href'), {
-        offset: -($('.navbar-gitlab').outerHeight() + $('.layout-nav').outerHeight())
+        offset: 0
       });
     };
 
