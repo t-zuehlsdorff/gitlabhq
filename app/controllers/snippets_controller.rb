@@ -1,6 +1,7 @@
 class SnippetsController < ApplicationController
   include ToggleAwardEmoji
   include SpammableActions
+  include SnippetsActions
 
   before_action :snippet, only: [:show, :edit, :destroy, :update, :raw, :download]
 
@@ -22,7 +23,7 @@ class SnippetsController < ApplicationController
     if params[:username].present?
       @user = User.find_by(username: params[:username])
 
-      render_404 and return unless @user
+      return render_404 unless @user
 
       @snippets = SnippetsFinder.new.execute(current_user, {
         filter: :by_user,
@@ -47,9 +48,6 @@ class SnippetsController < ApplicationController
     respond_with @snippet.becomes(Snippet)
   end
 
-  def edit
-  end
-
   def update
     UpdateSnippetService.new(nil, current_user, @snippet,
                              snippet_params).execute
@@ -67,18 +65,9 @@ class SnippetsController < ApplicationController
     redirect_to snippets_path
   end
 
-  def raw
-    send_data(
-      @snippet.content,
-      type: 'text/plain; charset=utf-8',
-      disposition: 'inline',
-      filename: @snippet.sanitized_file_name
-    )
-  end
-
   def download
     send_data(
-      @snippet.content,
+      convert_line_endings(@snippet.content),
       type: 'text/plain; charset=utf-8',
       filename: @snippet.sanitized_file_name
     )
