@@ -172,7 +172,7 @@ module API
           end
         end
 
-        user_params.merge!(password_expires_at: Time.now) if user_params[:password].present?
+        user_params[:password_expires_at] = Time.now if user_params[:password].present?
 
         if user.update_attributes(user_params.except(:extern_uid, :provider))
           present user, with: Entities::UserPublic
@@ -236,7 +236,7 @@ module API
         key = user.keys.find_by(id: params[:key_id])
         not_found!('Key') unless key
 
-        present key.destroy, with: Entities::SSHKey
+        key.destroy
       end
 
       desc 'Add an email address to a specified user. Available only for admins.' do
@@ -422,7 +422,7 @@ module API
         key = current_user.keys.find_by(id: params[:key_id])
         not_found!('Key') unless key
 
-        present key.destroy, with: Entities::SSHKey
+        key.destroy
       end
 
       desc "Get the currently authenticated user's email addresses" do

@@ -514,7 +514,7 @@ If the user is already subscribed to the issue, the status code `304`
 is returned.
 
 ```
-POST /projects/:id/issues/:issue_id/subscription
+POST /projects/:id/issues/:issue_id/subscribe
 ```
 
 | Attribute | Type | Required | Description |
@@ -523,7 +523,7 @@ POST /projects/:id/issues/:issue_id/subscription
 | `issue_id` | integer | yes | The ID of a project's issue |
 
 ```bash
-curl --request POST --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/projects/5/issues/93/subscription
+curl --request POST --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/projects/5/issues/93/subscribe
 ```
 
 Example response:
@@ -569,7 +569,7 @@ from it. If the user is not subscribed to the issue, the
 status code `304` is returned.
 
 ```
-DELETE /projects/:id/issues/:issue_id/subscription
+POST /projects/:id/issues/:issue_id/unsubscribe
 ```
 
 | Attribute | Type | Required | Description |
@@ -578,44 +578,7 @@ DELETE /projects/:id/issues/:issue_id/subscription
 | `issue_id` | integer | yes | The ID of a project's issue |
 
 ```bash
-curl --request DELETE --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/projects/5/issues/93/subscription
-```
-
-Example response:
-
-```json
-{
-  "id": 93,
-  "iid": 12,
-  "project_id": 5,
-  "title": "Incidunt et rerum ea expedita iure quibusdam.",
-  "description": "Et cumque architecto sed aut ipsam.",
-  "state": "opened",
-  "created_at": "2016-04-05T21:41:45.217Z",
-  "updated_at": "2016-04-07T13:02:37.905Z",
-  "labels": [],
-  "milestone": null,
-  "assignee": {
-    "name": "Edwardo Grady",
-    "username": "keyon",
-    "id": 21,
-    "state": "active",
-    "avatar_url": "http://www.gravatar.com/avatar/3e6f06a86cf27fa8b56f3f74f7615987?s=80&d=identicon",
-    "web_url": "https://gitlab.example.com/keyon"
-  },
-  "author": {
-    "name": "Vivian Hermann",
-    "username": "orville",
-    "id": 11,
-    "state": "active",
-    "avatar_url": "http://www.gravatar.com/avatar/5224fd70153710e92fb8bcf79ac29d67?s=80&d=identicon",
-    "web_url": "https://gitlab.example.com/orville"
-  },
-  "subscribed": false,
-  "due_date": null,
-  "web_url": "http://example.com/example/example/issues/12",
-  "confidential": false
-}
+curl --request POST --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/projects/5/issues/93/unsubscribe
 ```
 
 ## Create a todo

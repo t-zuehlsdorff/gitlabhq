@@ -91,10 +91,6 @@ class MergeRequest < ActiveRecord::Base
     around_transition do |merge_request, transition, block|
       Gitlab::Timeless.timeless(merge_request, &block)
     end
-
-    after_transition unchecked: :cannot_be_merged do |merge_request, transition|
-      TodoService.new.merge_request_became_unmergeable(merge_request)
-    end
   end
 
   validates :source_project, presence: true, unless: [:allow_broken, :importing?, :closed_without_fork?]
@@ -203,7 +199,11 @@ class MergeRequest < ActiveRecord::Base
   end
 
   def diff_size
-    opts = diff_options || {}
+    # The `#diffs` method ends up at an instance of a class inheriting from
+    # `Gitlab::Diff::FileCollection::Base`, so use those options as defaults
+    # here too, to get the same diff size without performing highlighting.
+    #
+    opts = Gitlab::Diff::FileCollection::Base.default_options.merge(diff_options || {})
 
     raw_diffs(opts).size
   end
@@ -527,7 +527,7 @@ class MergeRequest < ActiveRecord::Base
     }
 
     if diff_head_commit
-      attrs.merge!(last_commit: diff_head_commit.hook_attrs)
+      attrs[:last_commit] = diff_head_commit.hook_attrs
     end
 
     attributes.merge!(attrs)

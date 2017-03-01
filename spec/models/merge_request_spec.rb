@@ -209,6 +209,50 @@ describe MergeRequest, models: true do
     end
   end
 
+  describe '#diff_size' do
+    let(:merge_request) do
+      build(:merge_request, source_branch: 'expand-collapse-files', target_branch: 'master')
+    end
+
+    context 'when there are MR diffs' do
+      before do
+        merge_request.save
+      end
+
+      it 'returns the correct count' do
+        expect(merge_request.diff_size).to eq(105)
+      end
+
+      it 'does not perform highlighting' do
+        expect(Gitlab::Diff::Highlight).not_to receive(:new)
+
+        merge_request.diff_size
+      end
+    end
+
+    context 'when there are no MR diffs' do
+      before do
+        merge_request.compare = CompareService.new(
+          merge_request.source_project,
+          merge_request.source_branch
+        ).execute(
+          merge_request.target_project,
+          merge_request.target_branch
+        )
+      end
+
+      it 'returns the correct count' do
+        expect(merge_request.diff_size).to eq(105)
+      end
+
+      it 'does not perform highlighting' do
+        expect(Gitlab::Diff::Highlight).not_to receive(:new)
+
+        merge_request.diff_size
+      end
+    end
+  end
+
   describe "#related_notes" do
     let!(:merge_request) { create(:merge_request) }
 
@@ -788,12 +832,6 @@ describe MergeRequest, models: true do
 
       it 'becomes unmergeable' do
         expect { subject.check_if_can_be_merged }.to change { subject.merge_status }.to('cannot_be_merged')
-      end
-
-      it 'creates Todo on unmergeability' do
-        expect_any_instance_of(TodoService).to receive(:merge_request_became_unmergeable).with(subject)
-
-        subject.check_if_can_be_merged
       end
     end
 

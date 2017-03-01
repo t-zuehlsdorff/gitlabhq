@@ -121,7 +121,7 @@ describe API::Projects, api: true  do
 
       context 'and with simple=true' do
         it 'returns a simplified version of all the projects' do
-          expected_keys = ["id", "http_url_to_repo", "web_url", "name", "name_with_namespace", "path", "path_with_namespace"]
+          expected_keys = %w(id http_url_to_repo web_url name name_with_namespace path path_with_namespace)
 
           get api('/projects?simple=true', user)
 
@@ -820,8 +820,9 @@ describe API::Projects, api: true  do
     it 'deletes existing project snippet' do
       expect do
         delete api("/projects/#{project.id}/snippets/#{snippet.id}", user)
+
+        expect(response).to have_http_status(204)
       end.to change { Snippet.count }.by(-1)
-      expect(response).to have_http_status(200)
     end
 
     it 'returns 404 when deleting unknown snippet id' do
@@ -905,8 +906,10 @@ describe API::Projects, api: true  do
           project_fork_target.reload
           expect(project_fork_target.forked_from_project).not_to be_nil
           expect(project_fork_target.forked?).to be_truthy
+
           delete api("/projects/#{project_fork_target.id}/fork", admin)
-          expect(response).to have_http_status(200)
+
+          expect(response).to have_http_status(204)
           project_fork_target.reload
           expect(project_fork_target.forked_from_project).to be_nil
           expect(project_fork_target.forked?).not_to be_truthy
@@ -1263,7 +1266,9 @@ describe API::Projects, api: true  do
     context 'when authenticated as user' do
       it 'removes project' do
         delete api("/projects/#{project.id}", user)
-        expect(response).to have_http_status(200)
+
+        expect(response).to have_http_status(202)
+        expect(json_response['message']).to eql('202 Accepted')
       end
 
       it 'does not remove a project if not an owner' do
@@ -1287,7 +1292,9 @@ describe API::Projects, api: true  do
     context 'when authenticated as admin' do
       it 'removes any existing project' do
         delete api("/projects/#{project.id}", admin)
-        expect(response).to have_http_status(200)
+
+        expect(response).to have_http_status(202)
+        expect(json_response['message']).to eql('202 Accepted')
       end
 
       it 'does not remove a non existing project' do
@@ -1419,6 +1426,55 @@ describe API::Projects, api: true  do
 
         expect(response).to have_http_status(401)
         expect(json_response['message']).to eq('401 Unauthorized')
+      end
+    end
+  end
+
+  describe 'POST /projects/:id/housekeeping' do
+    let(:housekeeping) { Projects::HousekeepingService.new(project) }
+
+    before do
+      allow(Projects::HousekeepingService).to receive(:new).with(project).and_return(housekeeping)
+    end
+
+    context 'when authenticated as owner' do
+      it 'starts the housekeeping process' do
+        expect(housekeeping).to receive(:execute).once
+
+        post api("/projects/#{project.id}/housekeeping", user)
+
+        expect(response).to have_http_status(201)
+      end
+
+      context 'when housekeeping lease is taken' do
+        it 'returns conflict' do
+          expect(housekeeping).to receive(:execute).once.and_raise(Projects::HousekeepingService::LeaseTaken)
+
+          post api("/projects/#{project.id}/housekeeping", user)
+
+          expect(response).to have_http_status(409)
+          expect(json_response['message']).to match(/Somebody already triggered housekeeping for this project/)
+        end
+      end
+    end
+
+    context 'when authenticated as developer' do
+      before do
+        project_member2
+      end
+
+      it 'returns forbidden error' do
+        post api("/projects/#{project.id}/housekeeping", user3)
+
+        expect(response).to have_http_status(403)
+      end
+    end
+
+    context 'when unauthenticated' do
+      it 'returns authentication error' do
+        post api("/projects/#{project.id}/housekeeping")
+
+        expect(response).to have_http_status(401)
       end
     end
   end

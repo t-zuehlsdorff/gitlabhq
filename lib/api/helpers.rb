@@ -3,7 +3,7 @@ module API
     include Gitlab::Utils
     include Helpers::Pagination
 
-    SUDO_HEADER = "HTTP_SUDO"
+    SUDO_HEADER = "HTTP_SUDO".freeze
     SUDO_PARAM = :sudo
 
     def declared_params(options = {})
@@ -209,10 +209,18 @@ module API
       render_api_error!('204 No Content', 204)
     end
 
+    def accepted!
+      render_api_error!('202 Accepted', 202)
+    end
+
     def render_validation_error!(model)
       if model.errors.any?
         render_api_error!(model.errors.messages || '400 Bad Request', 400)
       end
+    end
+
+    def render_spam_error!
+      render_api_error!({ error: 'Spam detected' }, 400)
     end
 
     def render_api_error!(message, status)

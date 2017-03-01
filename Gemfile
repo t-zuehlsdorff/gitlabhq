@@ -20,7 +20,7 @@ gem 'rugged', '~> 0.24.0'
 # Authentication libraries
 gem 'devise',                 '~> 4.2'
 gem 'doorkeeper',             '~> 4.2.0'
-gem 'omniauth',               '~> 1.3.2'
+gem 'omniauth',               '~> 1.4.2'
 gem 'omniauth-auth0',         '~> 1.4.1'
 gem 'omniauth-azure-oauth2',  '~> 0.0.6'
 gem 'omniauth-cas3',          '~> 1.1.2'
@@ -68,7 +68,7 @@ gem 'gollum-rugged_adapter', '~> 0.4.2', require: false
 gem 'github-linguist', '~> 4.7.0', require: 'linguist'
 
 # API
-gem 'grape',        '~> 0.18.0'
+gem 'grape',        '~> 0.19.0'
 gem 'grape-entity', '~> 0.6.0'
 gem 'rack-cors',    '~> 0.4.0', require: 'rack/cors'
 
@@ -201,7 +201,7 @@ gem 'babosa', '~> 1.0.2'
 gem 'loofah', '~> 2.0.3'
 
 # Working with license
-gem 'licensee', '~> 8.0.0'
+gem 'licensee', '~> 8.7.0'
 
 # Protect against bruteforcing
 gem 'rack-attack', '~> 4.4.1'
@@ -301,10 +301,10 @@ group :development, :test do
   gem 'spring-commands-rspec',    '~> 1.0.4'
   gem 'spring-commands-spinach',  '~> 1.1.0'
 
-  gem 'rubocop', '~> 0.46.0', require: false
-  gem 'rubocop-rspec', '~> 1.9.1', require: false
+  gem 'rubocop', '~> 0.47.1', require: false
+  gem 'rubocop-rspec', '~> 1.12.0', require: false
   gem 'scss_lint', '~> 0.47.0', require: false
-  gem 'haml_lint', '~> 0.18.2', require: false
+  gem 'haml_lint', '~> 0.21.0', require: false
   gem 'simplecov', '0.12.0', require: false
   gem 'flay', '~> 2.6.1', require: false
   gem 'bundler-audit', '~> 0.5.0', require: false
