@@ -97,6 +97,7 @@ variables:
 triggers:
 - project
 - trigger_requests
+- owner
 deploy_keys:
 - user
 - deploy_keys_projects
@@ -135,6 +136,7 @@ project:
 - slack_slash_commands_service
 - irker_service
 - pivotaltracker_service
+- prometheus_service
 - hipchat_service
 - flowdock_service
 - assembla_service
@@ -153,6 +155,7 @@ project:
 - gitlab_issue_tracker_service
 - external_wiki_service
 - kubernetes_service
+- mock_ci_service
 - forked_project_link
 - forked_from_project
 - forked_project_links
@@ -197,6 +200,7 @@ project:
 - project_authorizations
 - route
 - statistics
+- uploads
 award_emoji:
 - awardable
 - user

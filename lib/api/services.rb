@@ -122,9 +122,9 @@ module API
         },
         {
           required: false,
-          name: :notify_only_broken_builds,
+          name: :notify_only_broken_jobs,
           type: Boolean,
-          desc: 'Notify only broken builds'
+          desc: 'Notify only broken jobs'
         }
       ],
       'campfire' => [
@@ -403,9 +403,9 @@ module API
         },
         {
           required: false,
-          name: :notify_only_broken_builds,
+          name: :notify_only_broken_jobs,
           type: Boolean,
-          desc: 'Notify only broken builds'
+          desc: 'Notify only broken jobs'
         }
       ],
       'pivotaltracker' => [
@@ -420,6 +420,14 @@ module API
           name: :restrict_to_branch,
           type: String,
           desc: 'Comma-separated list of branches which will be automatically inspected. Leave blank to include all branches.'
+        }
+      ],
+      'prometheus' => [
+        {
+          required: true,
+          name: :api_url,
+          type: String,
+          desc: 'Prometheus API Base URL, like http://prometheus.example.com/'
         }
       ],
       'pushover' => [
@@ -558,6 +566,7 @@ module API
       SlackSlashCommandsService,
       PipelinesEmailService,
       PivotaltrackerService,
+      PrometheusService,
       PushoverService,
       RedmineService,
       SlackService,
@@ -611,7 +620,7 @@ module API
         desc "Set #{service_slug} service for project"
         params do
           service_classes.each do |service|
-            event_names = service.try(:event_names) || []
+            event_names = service.try(:event_names) || next
             event_names.each do |event_name|
               services[service.to_param.tr("_", "-")] << {
                 required: false,

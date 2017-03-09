@@ -74,8 +74,10 @@ describe KubernetesService, models: true, caching: true do
 
   describe '#initialize_properties' do
     context 'with a project' do
-      it 'defaults to the project name' do
-        expect(described_class.new(project: project).namespace).to eq(project.name)
+      let(:namespace_name) { "#{project.path}-#{project.id}" }
+
+      it 'defaults to the project name with ID' do
+        expect(described_class.new(project: project).namespace).to eq(namespace_name)
       end
     end
 
@@ -161,6 +163,12 @@ describe KubernetesService, models: true, caching: true do
     it 'sets KUBE_CA_PEM' do
       expect(subject.predefined_variables).to include(
         { key: 'KUBE_CA_PEM', value: 'CA PEM DATA', public: true }
+      )
+    end
+
+    it 'sets KUBE_CA_PEM_FILE' do
+      expect(subject.predefined_variables).to include(
+        { key: 'KUBE_CA_PEM_FILE', value: 'CA PEM DATA', public: true, file: true }
       )
     end
   end

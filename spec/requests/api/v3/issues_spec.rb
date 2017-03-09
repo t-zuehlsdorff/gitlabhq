@@ -232,6 +232,13 @@ describe API::V3::Issues, api: true  do
         expect(json_response).to be_an Array
         expect(response_dates).to eq(response_dates.sort)
       end
+
+      it 'matches V3 response schema' do
+        get v3_api('/issues', user)
+
+        expect(response).to have_http_status(200)
+        expect(response).to match_response_schema('public_api/v3/issues')
+      end
     end
   end
 
@@ -1281,6 +1288,6 @@ describe API::V3::Issues, api: true  do
   describe 'time tracking endpoints' do
     let(:issuable) { issue }
 
-    include_examples 'time tracking endpoints', 'issue'
+    include_examples 'V3 time tracking endpoints', 'issue'
   end
 end

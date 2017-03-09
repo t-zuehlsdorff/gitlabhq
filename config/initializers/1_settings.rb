@@ -83,7 +83,7 @@ class Settings < Settingslogic
 
     def base_url(config)
       custom_port = on_standard_port?(config) ? nil : ":#{config.port}"
-      
+
       [
         config.protocol,
         "://",
@@ -186,7 +186,7 @@ Settings['issues_tracker'] ||= {}
 # GitLab
 #
 Settings['gitlab'] ||= Settingslogic.new({})
-Settings.gitlab['default_projects_limit'] ||= 10
+Settings.gitlab['default_projects_limit'] ||= 100000
 Settings.gitlab['default_branch_protection'] ||= 2
 Settings.gitlab['default_can_create_group'] = true if Settings.gitlab['default_can_create_group'].nil?
 Settings.gitlab['host']       ||= ENV['GITLAB_HOST'] || 'localhost'
@@ -308,9 +308,9 @@ Settings.gravatar['host']         = Settings.host_without_www(Settings.gravatar[
 # Cron Jobs
 #
 Settings['cron_jobs'] ||= Settingslogic.new({})
-Settings.cron_jobs['stuck_ci_builds_worker'] ||= Settingslogic.new({})
-Settings.cron_jobs['stuck_ci_builds_worker']['cron'] ||= '0 0 * * *'
-Settings.cron_jobs['stuck_ci_builds_worker']['job_class'] = 'StuckCiBuildsWorker'
+Settings.cron_jobs['stuck_ci_jobs_worker'] ||= Settingslogic.new({})
+Settings.cron_jobs['stuck_ci_jobs_worker']['cron'] ||= '0 * * * *'
+Settings.cron_jobs['stuck_ci_jobs_worker']['job_class'] = 'StuckCiJobsWorker'
 Settings.cron_jobs['expire_build_artifacts_worker'] ||= Settingslogic.new({})
 Settings.cron_jobs['expire_build_artifacts_worker']['cron'] ||= '50 * * * *'
 Settings.cron_jobs['expire_build_artifacts_worker']['job_class'] = 'ExpireBuildArtifactsWorker'
@@ -366,8 +366,13 @@ Settings.gitlab_shell['ssh_path_prefix'] ||= Settings.send(:build_gitlab_shell_s
 #
 Settings['repositories'] ||= Settingslogic.new({})
 Settings.repositories['storages'] ||= {}
-# Setting gitlab_shell.repos_path is DEPRECATED and WILL BE REMOVED in version 9.0
-Settings.repositories.storages['default'] ||= Settings.gitlab_shell['repos_path'] || Settings.gitlab['user_home'] + '/repositories/'
+unless Settings.repositories.storages['default']
+  Settings.repositories.storages['default'] ||= {}
+  # We set the path only if the default storage doesn't exist, in case it exists
+  # but follows the pre-9.0 configuration structure. `6_validations.rb` initializer
+  # will validate all storages and throw a relevant error to the user if necessary.
+  Settings.repositories.storages['default']['path'] ||= Settings.gitlab['user_home'] + '/repositories/'
+end
 
 #
 # The repository_downloads_path is used to remove outdated repository
@@ -376,11 +381,11 @@ Settings.repositories.storages['default'] ||= Settings.gitlab_shell['repos_path'
 # data-integrity issue. In this case, we sets it to the default
 # repository_downloads_path value.
 #
-repositories_storages_path     = Settings.repositories.storages.values
+repositories_storages          = Settings.repositories.storages.values
 repository_downloads_path      = Settings.gitlab['repository_downloads_path'].to_s.gsub(/\/$/, '')
 repository_downloads_full_path = File.expand_path(repository_downloads_path, Settings.gitlab['user_home'])
 
-if repository_downloads_path.blank? || repositories_storages_path.any? { |path| [repository_downloads_path, repository_downloads_full_path].include?(path.gsub(/\/$/, '')) }
+if repository_downloads_path.blank? || repositories_storages.any? { |rs| [repository_downloads_path, repository_downloads_full_path].include?(rs['path'].gsub(/\/$/, '')) }
   Settings.gitlab['repository_downloads_path'] = File.join(Settings.shared['path'], 'cache/archive')
 end
 
@@ -399,6 +404,7 @@ if Settings.backup['upload']['connection']
 end
 Settings.backup['upload']['multipart_chunk_size'] ||= 104857600
 Settings.backup['upload']['encryption'] ||= nil
+Settings.backup['upload']['storage_class'] ||= nil
 
 #
 # Git

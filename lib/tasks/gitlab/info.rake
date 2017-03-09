@@ -14,6 +14,8 @@ namespace :gitlab do
       rake_version = run_and_match(%w(rake --version), /[\d\.]+/).try(:to_s)
       # check redis version
       redis_version = run_and_match(%w(redis-cli --version), /redis-cli (\d+\.\d+\.\d+)/).to_a
+      # check Git version
+      git_version = run_and_match([Gitlab.config.git.bin_path, '--version'], /git version ([\d\.]+)/).to_a
 
       puts ""
       puts "System information".color(:yellow)
@@ -26,6 +28,7 @@ namespace :gitlab do
       puts "Bundler Version:#{bunder_version || "unknown".color(:red)}"
       puts "Rake Version:\t#{rake_version || "unknown".color(:red)}"
       puts "Redis Version:\t#{redis_version[1] || "unknown".color(:red)}"
+      puts "Git Version:\t#{git_version[1] || "unknown".color(:red)}"
       puts "Sidekiq Version:#{Sidekiq::VERSION}"
 
       # check database adapter
@@ -62,8 +65,8 @@ namespace :gitlab do
       puts "GitLab Shell".color(:yellow)
       puts "Version:\t#{gitlab_shell_version || "unknown".color(:red)}"
       puts "Repository storage paths:"
-      Gitlab.config.repositories.storages.each do |name, path|
-        puts "- #{name}: \t#{path}"
+      Gitlab.config.repositories.storages.each do |name, repository_storage|
+        puts "- #{name}: \t#{repository_storage['path']}"
       end
       puts "Hooks:\t\t#{Gitlab.config.gitlab_shell.hooks_path}"
       puts "Git:\t\t#{Gitlab.config.git.bin_path}"

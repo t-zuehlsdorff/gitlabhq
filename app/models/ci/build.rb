@@ -55,15 +55,6 @@ module Ci
         pending.unstarted.order('created_at ASC').first
       end
 
-      def create_from(build)
-        new_build = build.dup
-        new_build.status = 'pending'
-        new_build.runner_id = nil
-        new_build.trigger_request_id = nil
-        new_build.token = nil
-        new_build.save
-      end
-
       def retry(build, current_user)
         Ci::RetryBuildService
           .new(build.project, current_user)
@@ -72,6 +63,10 @@ module Ci
     end
 
     state_machine :status do
+      event :actionize do
+        transition created: :manual
+      end
+
       after_transition any => [:pending] do |build|
         build.run_after_commit do
           BuildQueueWorker.perform_async(id)
@@ -103,16 +98,21 @@ module Ci
         .fabricate!
     end
 
-    def manual?
-      self.when == 'manual'
-    end
-
     def other_actions
       pipeline.manual_actions.where.not(name: name)
     end
 
     def playable?
-      project.builds_enabled? && commands.present? && manual? && skipped?
+      project.builds_enabled? && has_commands? &&
+        action? && manual?
+    end
+
+    def action?
+      self.when == 'manual'
+    end
+
+    def has_commands?
+      commands.present?
     end
 
     def play(current_user)
@@ -131,7 +131,7 @@ module Ci
     end
 
     def retryable?
-      project.builds_enabled? && commands.present? &&
+      project.builds_enabled? && has_commands? &&
         (success? || failed? || canceled?)
     end
 
@@ -517,6 +517,27 @@ module Ci
       ]
     end
 
+    def steps
+      [Gitlab::Ci::Build::Step.from_commands(self),
+       Gitlab::Ci::Build::Step.from_after_script(self)].compact
+    end
+
+    def image
+      Gitlab::Ci::Build::Image.from_image(self)
+    end
+
+    def services
+      Gitlab::Ci::Build::Image.from_services(self)
+    end
+
+    def artifacts
+      [options[:artifacts]]
+    end
+
+    def cache
+      [options[:cache]]
+    end
+
     def credentials
       Gitlab::Ci::Build::Credentials::Factory.new(self).create!
     end
@@ -543,10 +564,35 @@ module Ci
       @unscoped_project ||= Project.unscoped.find_by(id: gl_project_id)
     end
 
+    CI_REGISTRY_USER = 'gitlab-ci-token'.freeze
+
     def predefined_variables
       variables = [
         { key: 'CI', value: 'true', public: true },
         { key: 'GITLAB_CI', value: 'true', public: true },
+        { key: 'CI_SERVER_NAME', value: 'GitLab', public: true },
+        { key: 'CI_SERVER_VERSION', value: Gitlab::VERSION, public: true },
+        { key: 'CI_SERVER_REVISION', value: Gitlab::REVISION, public: true },
+        { key: 'CI_JOB_ID', value: id.to_s, public: true },
+        { key: 'CI_JOB_NAME', value: name, public: true },
+        { key: 'CI_JOB_STAGE', value: stage, public: true },
+        { key: 'CI_JOB_TOKEN', value: token, public: false },
+        { key: 'CI_COMMIT_SHA', value: sha, public: true },
+        { key: 'CI_COMMIT_REF_NAME', value: ref, public: true },
+        { key: 'CI_COMMIT_REF_SLUG', value: ref_slug, public: true },
+        { key: 'CI_REGISTRY_USER', value: CI_REGISTRY_USER, public: true },
+        { key: 'CI_REGISTRY_PASSWORD', value: token, public: false },
+        { key: 'CI_REPOSITORY_URL', value: repo_url, public: false }
+      ]
+
+      variables << { key: "CI_COMMIT_TAG", value: ref, public: true } if tag?
+      variables << { key: "CI_PIPELINE_TRIGGERED", value: 'true', public: true } if trigger_request
+      variables << { key: "CI_JOB_MANUAL", value: 'true', public: true } if action?
+      variables.concat(legacy_variables)
+    end
+
+    def legacy_variables
+      variables = [
         { key: 'CI_BUILD_ID', value: id.to_s, public: true },
         { key: 'CI_BUILD_TOKEN', value: token, public: false },
         { key: 'CI_BUILD_REF', value: sha, public: true },
@@ -554,14 +600,12 @@ module Ci
         { key: 'CI_BUILD_REF_NAME', value: ref, public: true },
         { key: 'CI_BUILD_REF_SLUG', value: ref_slug, public: true },
         { key: 'CI_BUILD_NAME', value: name, public: true },
-        { key: 'CI_BUILD_STAGE', value: stage, public: true },
-        { key: 'CI_SERVER_NAME', value: 'GitLab', public: true },
-        { key: 'CI_SERVER_VERSION', value: Gitlab::VERSION, public: true },
-        { key: 'CI_SERVER_REVISION', value: Gitlab::REVISION, public: true }
+        { key: 'CI_BUILD_STAGE', value: stage, public: true }
       ]
-      variables << { key: 'CI_BUILD_TAG', value: ref, public: true } if tag?
-      variables << { key: 'CI_BUILD_TRIGGERED', value: 'true', public: true } if trigger_request
-      variables << { key: 'CI_BUILD_MANUAL', value: 'true', public: true } if manual?
+
+      variables << { key: "CI_BUILD_TAG", value: ref, public: true } if tag?
+      variables << { key: "CI_BUILD_TRIGGERED", value: 'true', public: true } if trigger_request
+      variables << { key: "CI_BUILD_MANUAL", value: 'true', public: true } if action?
       variables
     end
 
