@@ -115,6 +115,21 @@ The following steps must be done as superuser!
 
 ## 4. GitLab
 
+### Change home directory of git user
+
+Currently the default home directory of the git user used by FreeBSD is /usr/local/git.
+But GitLab expects /home/git. As long as you do not use the port devel/py-gitosis it is
+save to change the home directory:
+
+    # You need to be root user
+    vipw -d /etc
+    
+    # find this line:
+    git:*:211:211::0:0:gitosis user:/usr/local/git:/bin/sh
+    
+    # replace it with this line:
+    git:*:211:211::0:0:gitosis user:/usr/home/git:/bin/sh
+
 ### Configure It
 
     # You need to be root user
