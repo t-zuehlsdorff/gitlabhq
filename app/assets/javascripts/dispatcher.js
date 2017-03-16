@@ -5,7 +5,6 @@ import PrometheusGraph from './monitoring/prometheus_graph'; // TODO: Maybe Make
 /* global ShortcutsNavigation */
 /* global Build */
 /* global Issuable */
-/* global Issue */
 /* global ShortcutsIssuable */
 /* global ZenMode */
 /* global Milestone */
@@ -35,10 +34,14 @@ import PrometheusGraph from './monitoring/prometheus_graph'; // TODO: Maybe Make
 /* global ProjectShow */
 /* global Labels */
 /* global Shortcuts */
+import Issue from './issue';
 
 import BindInOut from './behaviors/bind_in_out';
+import GroupName from './group_name';
 import GroupsList from './groups_list';
 import ProjectsList from './projects_list';
+import MiniPipelineGraph from './mini_pipeline_graph_dropdown';
+import BlobLinePermalinkUpdater from './blob/blob_line_permalink_updater';
 
 const ShortcutsBlob = require('./shortcuts_blob');
 const UserCallout = require('./user_callout');
@@ -58,13 +61,32 @@ const UserCallout = require('./user_callout');
     }
 
     Dispatcher.prototype.initPageScripts = function() {
-      var page, path, shortcut_handler;
+      var page, path, shortcut_handler, fileBlobPermalinkUrlElement, fileBlobPermalinkUrl;
       page = $('body').attr('data-page');
       if (!page) {
         return false;
       }
       path = page.split(':');
       shortcut_handler = null;
+
+      function initBlob() {
+        new LineHighlighter();
+
+        new BlobLinePermalinkUpdater(
+          document.querySelector('#blob-content-holder'),
+          '.diff-line-num[data-line-number]',
+          document.querySelectorAll('.js-data-file-blob-permalink-url, .js-blob-blame-link'),
+        );
+
+        shortcut_handler = new ShortcutsNavigation();
+        fileBlobPermalinkUrlElement = document.querySelector('.js-data-file-blob-permalink-url');
+        fileBlobPermalinkUrl = fileBlobPermalinkUrlElement && fileBlobPermalinkUrlElement.getAttribute('href');
+        new ShortcutsBlob({
+          skipResetBindings: true,
+          fileBlobPermalinkUrl,
+        });
+      }
+
       switch (page) {
         case 'sessions:new':
           new UsernameValidator();
@@ -179,10 +201,13 @@ const UserCallout = require('./user_callout');
           new gl.Diff();
           new ZenMode();
           shortcut_handler = new ShortcutsNavigation();
+          new MiniPipelineGraph({
+            container: '.js-commit-pipeline-graph',
+          }).bindEvents();
           break;
         case 'projects:commit:pipelines':
-          new gl.MiniPipelineGraph({
-            container: '.js-pipeline-table',
+          new MiniPipelineGraph({
+            container: '.js-commit-pipeline-graph',
           }).bindEvents();
           break;
         case 'projects:commits:show':
@@ -244,20 +269,26 @@ const UserCallout = require('./user_callout');
         case 'projects:tree:show':
           shortcut_handler = new ShortcutsNavigation();
           new TreeView();
+          gl.TargetBranchDropDown.bootstrap();
           break;
         case 'projects:find_file:show':
           shortcut_handler = true;
           break;
+        case 'projects:blob:new':
+          gl.TargetBranchDropDown.bootstrap();
+          break;
+        case 'projects:blob:create':
+          gl.TargetBranchDropDown.bootstrap();
+          break;
         case 'projects:blob:show':
+          gl.TargetBranchDropDown.bootstrap();
+          initBlob();
+          break;
+        case 'projects:blob:edit':
+          gl.TargetBranchDropDown.bootstrap();
+          break;
         case 'projects:blame:show':
-          new LineHighlighter();
-          shortcut_handler = new ShortcutsNavigation();
-          const fileBlobPermalinkUrlElement = document.querySelector('.js-data-file-blob-permalink-url');
-          const fileBlobPermalinkUrl = fileBlobPermalinkUrlElement && fileBlobPermalinkUrlElement.getAttribute('href');
-          new ShortcutsBlob({
-            skipResetBindings: true,
-            fileBlobPermalinkUrl,
-          });
+          initBlob();
           break;
         case 'groups:labels:new':
         case 'groups:labels:edit':
@@ -341,6 +372,9 @@ const UserCallout = require('./user_callout');
           shortcut_handler = new ShortcutsDashboardNavigation();
           new UserCallout();
           break;
+        case 'groups':
+          new GroupName();
+          break;
         case 'profiles':
           new NotificationsForm();
           new NotificationsDropdown();
@@ -348,6 +382,7 @@ const UserCallout = require('./user_callout');
         case 'projects':
           new Project();
           new ProjectAvatar();
+          new GroupName();
           switch (path[1]) {
             case 'compare':
               new CompareAutocomplete();

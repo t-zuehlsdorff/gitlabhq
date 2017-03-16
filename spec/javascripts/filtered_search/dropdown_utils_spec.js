@@ -45,7 +45,7 @@ require('~/filtered_search/filtered_search_dropdown_manager');
       });
 
       it('should filter without symbol', () => {
-        input.value = ':roo';
+        input.value = 'roo';
 
         const updatedItem = gl.DropdownUtils.filterWithSymbol('@', input, item);
         expect(updatedItem.droplab_hidden).toBe(false);
@@ -58,69 +58,62 @@ require('~/filtered_search/filtered_search_dropdown_manager');
         expect(updatedItem.droplab_hidden).toBe(false);
       });
 
-      it('should filter with colon', () => {
-        input.value = 'roo';
-
-        const updatedItem = gl.DropdownUtils.filterWithSymbol('@', input, item);
-        expect(updatedItem.droplab_hidden).toBe(false);
-      });
-
       describe('filters multiple word title', () => {
         const multipleWordItem = {
           title: 'Community Contributions',
         };
 
         it('should filter with double quote', () => {
-          input.value = 'label:"';
+          input.value = '"';
 
           const updatedItem = gl.DropdownUtils.filterWithSymbol('~', input, multipleWordItem);
           expect(updatedItem.droplab_hidden).toBe(false);
         });
 
         it('should filter with double quote and symbol', () => {
-          input.value = 'label:~"';
+          input.value = '~"';
 
           const updatedItem = gl.DropdownUtils.filterWithSymbol('~', input, multipleWordItem);
           expect(updatedItem.droplab_hidden).toBe(false);
         });
 
         it('should filter with double quote and multiple words', () => {
-          input.value = 'label:"community con';
+          input.value = '"community con';
 
           const updatedItem = gl.DropdownUtils.filterWithSymbol('~', input, multipleWordItem);
           expect(updatedItem.droplab_hidden).toBe(false);
         });
 
         it('should filter with double quote, symbol and multiple words', () => {
-          input.value = 'label:~"community con';
+          input.value = '~"community con';
 
           const updatedItem = gl.DropdownUtils.filterWithSymbol('~', input, multipleWordItem);
           expect(updatedItem.droplab_hidden).toBe(false);
         });
 
         it('should filter with single quote', () => {
-          input.value = 'label:\'';
+          input.value = '\'';
 
           const updatedItem = gl.DropdownUtils.filterWithSymbol('~', input, multipleWordItem);
           expect(updatedItem.droplab_hidden).toBe(false);
         });
 
         it('should filter with single quote and symbol', () => {
-          input.value = 'label:~\'';
+          input.value = '~\'';
 
           const updatedItem = gl.DropdownUtils.filterWithSymbol('~', input, multipleWordItem);
           expect(updatedItem.droplab_hidden).toBe(false);
         });
 
         it('should filter with single quote and multiple words', () => {
-          input.value = 'label:\'community con';
+          input.value = '\'community con';
 
           const updatedItem = gl.DropdownUtils.filterWithSymbol('~', input, multipleWordItem);
           expect(updatedItem.droplab_hidden).toBe(false);
         });
 
         it('should filter with single quote, symbol and multiple words', () => {
-          input.value = 'label:~\'community con';
+          input.value = '~\'community con';
 
           const updatedItem = gl.DropdownUtils.filterWithSymbol('~', input, multipleWordItem);
           expect(updatedItem.droplab_hidden).toBe(false);
@@ -133,7 +126,11 @@ require('~/filtered_search/filtered_search_dropdown_manager');
 
       beforeEach(() => {
         setFixtures(`
-          <input type="text" id="test" />
+          <ul class="tokens-container">
+            <li class="input-token">
+              <input class="filtered-search" type="text" id="test" />
+            </li>
+          </ul>
         `);
 
         input = document.getElementById('test');
@@ -149,13 +146,36 @@ require('~/filtered_search/filtered_search_dropdown_manager');
         input.value = 'o';
         updatedItem = gl.DropdownUtils.filterHint(input, {
           hint: 'label',
-        }, 'o');
+        });
         expect(updatedItem.droplab_hidden).toBe(true);
       });
 
       it('should return droplab_hidden false when item has no hint', () => {
         const updatedItem = gl.DropdownUtils.filterHint(input, {}, '');
         expect(updatedItem.droplab_hidden).toBe(false);
+      });
+
+      it('should allow multiple if item.type is array', () => {
+        input.value = 'label:~first la';
+        const updatedItem = gl.DropdownUtils.filterHint(input, {
+          hint: 'label',
+          type: 'array',
+        });
+        expect(updatedItem.droplab_hidden).toBe(false);
+      });
+
+      it('should prevent multiple if item.type is not array', () => {
+        input.value = 'milestone:~first mile';
+        let updatedItem = gl.DropdownUtils.filterHint(input, {
+          hint: 'milestone',
+        });
+        expect(updatedItem.droplab_hidden).toBe(true);
+
+        updatedItem = gl.DropdownUtils.filterHint(input, {
+          hint: 'milestone',
+          type: 'string',
+        });
+        expect(updatedItem.droplab_hidden).toBe(true);
       });
     });
 

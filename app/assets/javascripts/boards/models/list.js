@@ -10,7 +10,6 @@ class List {
     this.title = obj.title;
     this.type = obj.list_type;
     this.preset = ['done', 'blank'].indexOf(this.type) > -1;
-    this.filters = gl.issueBoards.BoardsStore.state.filters;
     this.page = 1;
     this.loading = true;
     this.loadingMore = false;
@@ -65,12 +64,27 @@ class List {
   }
 
   getIssues (emptyIssues = true) {
-    const filters = this.filters;
-    const data = { page: this.page };
+    const data = gl.issueBoards.BoardsStore.filter.path.split('&').reduce((data, filterParam) => {
+      if (filterParam === '') return data;
+      const paramSplit = filterParam.split('=');
+      const paramKeyNormalized = paramSplit[0].replace('[]', '');
+      const isArray = paramSplit[0].indexOf('[]');
+      const value = decodeURIComponent(paramSplit[1]).replace(/\+/g, ' ');
 
-    Object.keys(filters).forEach((key) => { data[key] = filters[key]; });
+      if (isArray !== -1) {
+        if (!data[paramKeyNormalized]) {
+          data[paramKeyNormalized] = [];
+        }
 
-    if (this.label) {
+        data[paramKeyNormalized].push(value);
+      } else {
+        data[paramKeyNormalized] = value;
+      }
+
+      return data;
+    }, { page: this.page });
+
+    if (this.label && data.label_name) {
       data.label_name = data.label_name.filter(label => label !== this.label.title);
     }
 
@@ -110,9 +124,20 @@ class List {
   }
 
   addIssue (issue, listFrom, newIndex) {
+    let moveBeforeIid = null;
+    let moveAfterIid = null;
+
     if (!this.findIssue(issue.id)) {
       if (newIndex !== undefined) {
         this.issues.splice(newIndex, 0, issue);
+
+        if (this.issues[newIndex - 1]) {
+          moveBeforeIid = this.issues[newIndex - 1].id;
+        }
+
+        if (this.issues[newIndex + 1]) {
+          moveAfterIid = this.issues[newIndex + 1].id;
+        }
       } else {
         this.issues.push(issue);
       }
@@ -123,13 +148,21 @@ class List {
 
       if (listFrom) {
         this.issuesSize += 1;
-        this.updateIssueLabel(issue, listFrom);
+
+        this.updateIssueLabel(issue, listFrom, moveBeforeIid, moveAfterIid);
       }
     }
   }
 
-  updateIssueLabel(issue, listFrom) {
-    gl.boardService.moveIssue(issue.id, listFrom.id, this.id)
+  moveIssue (issue, oldIndex, newIndex, moveBeforeIid, moveAfterIid) {
+    this.issues.splice(oldIndex, 1);
+    this.issues.splice(newIndex, 0, issue);
+
+    gl.boardService.moveIssue(issue.id, null, null, moveBeforeIid, moveAfterIid);
+  }
+
+  updateIssueLabel(issue, listFrom, moveBeforeIid, moveAfterIid) {
+    gl.boardService.moveIssue(issue.id, listFrom.id, this.id, moveBeforeIid, moveAfterIid)
       .then(() => {
         listFrom.getIssues(false);
       });
