@@ -35,6 +35,7 @@ var config = {
     issuable:             './issuable/issuable_bundle.js',
     merge_conflicts:      './merge_conflicts/merge_conflicts_bundle.js',
     merge_request_widget: './merge_request_widget/ci_bundle.js',
+    monitoring:           './monitoring/monitoring_bundle.js',
     network:              './network/network_bundle.js',
     profile:              './profile/profile_bundle.js',
     protected_branches:   './protected_branches/protected_branches_bundle.js',
@@ -56,15 +57,9 @@ var config = {
   module: {
     rules: [
       {
-        test: /\.(js|es6)$/,
+        test: /\.js$/,
         exclude: /(node_modules|vendor\/assets)/,
-        loader: 'babel-loader',
-        options: {
-          presets: [
-            ["es2015", {"modules": false}],
-            'stage-2'
-          ]
-        }
+        loader: 'babel-loader'
       },
       {
         test: /\.svg$/,
@@ -120,7 +115,7 @@ var config = {
     // create cacheable common library bundle for all d3 chunks
     new webpack.optimize.CommonsChunkPlugin({
       name: 'common_d3',
-      chunks: ['graphs', 'users'],
+      chunks: ['graphs', 'users', 'monitoring'],
     }),
 
     // create cacheable common library bundles
@@ -130,7 +125,7 @@ var config = {
   ],
 
   resolve: {
-    extensions: ['.js', '.es6', '.js.es6'],
+    extensions: ['.js'],
     alias: {
       '~':              path.join(ROOT_PATH, 'app/assets/javascripts'),
       'emojis':         path.join(ROOT_PATH, 'fixtures/emojis'),

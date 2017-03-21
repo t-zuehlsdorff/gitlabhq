@@ -29,8 +29,7 @@ describe Project, models: true do
     it { is_expected.to have_one(:campfire_service).dependent(:destroy) }
     it { is_expected.to have_one(:drone_ci_service).dependent(:destroy) }
     it { is_expected.to have_one(:emails_on_push_service).dependent(:destroy) }
-    it { is_expected.to have_one(:builds_email_service).dependent(:destroy) }
-    it { is_expected.to have_one(:emails_on_push_service).dependent(:destroy) }
+    it { is_expected.to have_one(:pipelines_email_service).dependent(:destroy) }
     it { is_expected.to have_one(:irker_service).dependent(:destroy) }
     it { is_expected.to have_one(:pivotaltracker_service).dependent(:destroy) }
     it { is_expected.to have_one(:hipchat_service).dependent(:destroy) }
@@ -217,6 +216,20 @@ describe Project, models: true do
       project2 = build(:empty_project, import_url: 'test://')
 
       expect(project2.import_data).to be_nil
+    end
+
+    it "does not allow blocked import_url localhost" do
+      project2 = build(:empty_project, import_url: 'http://localhost:9000/t.git')
+
+      expect(project2).to be_invalid
+      expect(project2.errors[:import_url]).to include('imports are not allowed from that URL')
+    end
+
+    it "does not allow blocked import_url port" do
+      project2 = build(:empty_project, import_url: 'http://github.com:25/t.git')
+
+      expect(project2).to be_invalid
+      expect(project2.errors[:import_url]).to include('imports are not allowed from that URL')
     end
 
     describe 'project pending deletion' do
@@ -1914,6 +1927,17 @@ describe Project, models: true do
 
         expect(project.http_url_to_repo(user)).to match(%r{https?:\/\/#{user.username}@})
       end
+    end
+  end
+
+  describe '#pipeline_status' do
+    let(:project) { create(:project) }
+    it 'builds a pipeline status' do
+      expect(project.pipeline_status).to be_a(Ci::PipelineStatus)
+    end
+
+    it 'hase a loaded pipeline status' do
+      expect(project.pipeline_status).to be_loaded
     end
   end
 end
