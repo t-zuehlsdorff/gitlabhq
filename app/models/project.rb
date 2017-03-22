@@ -238,7 +238,7 @@ class Project < ActiveRecord::Base
     # We need routes alias rs for JOIN so it does not conflict with
     # includes(:route) which we use in ProjectsFinder.
     joins("INNER JOIN routes rs ON rs.source_id = projects.id AND rs.source_type = 'Project'").
-      where('rs.path LIKE ?', "#{path}/%")
+      where('rs.path LIKE ?', "#{sanitize_sql_like(path)}/%")
   end
 
   # "enabled" here means "not disabled". It includes private features!
@@ -881,13 +881,9 @@ class Project < ActiveRecord::Base
   end
 
   def http_url_to_repo(user = nil)
-    url = web_url
+    credentials = Gitlab::UrlSanitizer.http_credentials_for_user(user)
 
-    if user
-      url.sub!(%r{\Ahttps?://}) { |protocol| "#{protocol}#{user.username}@" }
-    end
-
-    "#{url}.git"
+    Gitlab::UrlSanitizer.new("#{web_url}.git", credentials: credentials).full_url
   end
 
   # Check if current branch name is marked as protected in the system
