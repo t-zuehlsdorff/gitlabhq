@@ -8,12 +8,12 @@ class ApplicationController < ActionController::Base
   include PageLayoutHelper
   include SentryHelper
   include WorkhorseHelper
+  include EnforcesTwoFactorAuthentication
 
   before_action :authenticate_user_from_private_token!
   before_action :authenticate_user!
   before_action :validate_user_service_ticket!
   before_action :check_password_expiration
-  before_action :check_2fa_requirement
   before_action :ldap_security_check
   before_action :sentry_context
   before_action :default_headers
@@ -64,8 +64,11 @@ class ApplicationController < ActionController::Base
 
   # This filter handles both private tokens and personal access tokens
   def authenticate_user_from_private_token!
-    token_string = params[:private_token].presence || request.headers['PRIVATE-TOKEN'].presence
-    user = User.find_by_authentication_token(token_string) || User.find_by_personal_access_token(token_string)
+    token = params[:private_token].presence || request.headers['PRIVATE-TOKEN'].presence
+
+    return unless token.present?
+
+    user = User.find_by_authentication_token(token) || User.find_by_personal_access_token(token)
 
     if user && can?(user, :log_in)
       # Notice we are passing store false, so the user is not
@@ -145,12 +148,6 @@ class ApplicationController < ActionController::Base
   def check_password_expiration
     if current_user && current_user.password_expires_at && current_user.password_expires_at < Time.now && !current_user.ldap_user?
       return redirect_to new_profile_password_path
-    end
-  end
-
-  def check_2fa_requirement
-    if two_factor_authentication_required? && current_user && !current_user.two_factor_enabled? && !skip_two_factor?
-      redirect_to profile_two_factor_auth_path
     end
   end
 
@@ -260,23 +257,6 @@ class ApplicationController < ActionController::Base
 
   def gitlab_project_import_enabled?
     current_application_settings.import_sources.include?('gitlab_project')
-  end
-
-  def two_factor_authentication_required?
-    current_application_settings.require_two_factor_authentication
-  end
-
-  def two_factor_grace_period
-    current_application_settings.two_factor_grace_period
-  end
-
-  def two_factor_grace_period_expired?
-    date = current_user.otp_grace_period_started_at
-    date && (date + two_factor_grace_period.hours) < Time.current
-  end
-
-  def skip_two_factor?
-    session[:skip_tfa] && session[:skip_tfa] > Time.current
   end
 
   # U2F (universal 2nd factor) devices need a unique identifier for the application

@@ -6,7 +6,7 @@ class ChatNotificationService < Service
   default_value_for :category, 'chat'
 
   prop_accessor :webhook, :username, :channel
-  boolean_accessor :notify_only_broken_pipelines
+  boolean_accessor :notify_only_broken_pipelines, :notify_only_default_branch
 
   validates :webhook, presence: true, url: true, if: :activated?
 
@@ -17,6 +17,7 @@ class ChatNotificationService < Service
     if properties.nil?
       self.properties = {}
       self.notify_only_broken_pipelines = true
+      self.notify_only_default_branch = true
     end
   end
 
@@ -29,16 +30,26 @@ class ChatNotificationService < Service
        pipeline wiki_page]
   end
 
+  def fields
+    default_fields + build_event_channels
+  end
+
+  def default_fields
+    [
+      { type: 'text', name: 'webhook', placeholder: "e.g. #{webhook_placeholder}" },
+      { type: 'text', name: 'username', placeholder: 'e.g. GitLab' },
+      { type: 'checkbox', name: 'notify_only_broken_pipelines' },
+      { type: 'checkbox', name: 'notify_only_default_branch' },
+    ]
+  end
+
   def execute(data)
     return unless supported_events.include?(data[:object_kind])
     return unless webhook.present?
 
     object_kind = data[:object_kind]
 
-    data = data.merge(
-      project_url: project_url,
-      project_name: project_name
-    )
+    data = custom_data(data)
 
     # WebHook events often have an 'update' event that follows a 'open' or
     # 'close' action. Ignore update events for now to prevent duplicate
@@ -54,8 +65,7 @@ class ChatNotificationService < Service
     opts[:channel] = channel_name if channel_name
     opts[:username] = username if username
 
-    notifier = Slack::Notifier.new(webhook, opts)
-    notifier.ping(message.pretext, attachments: message.attachments, fallback: message.fallback)
+    return false unless notify(message, opts)
 
     true
   end
@@ -77,6 +87,18 @@ class ChatNotificationService < Service
   end
 
   private
+
+  def notify(message, opts)
+    Slack::Notifier.new(webhook, opts).ping(
+      message.pretext,
+      attachments: message.attachments,
+      fallback: message.fallback
+    )
+  end
+
+  def custom_data(data)
+    data.merge(project_url: project_url, project_name: project_name)
+  end
 
   def get_message(object_kind, data)
     case object_kind
@@ -123,6 +145,17 @@ class ChatNotificationService < Service
   end
 
   def should_pipeline_be_notified?(data)
+    notify_for_ref?(data) && notify_for_pipeline?(data)
+  end
+
+  def notify_for_ref?(data)
+    return true if data[:object_attributes][:tag]
+    return true unless notify_only_default_branch
+
+    data[:object_attributes][:ref] == project.default_branch
+  end
+
+  def notify_for_pipeline?(data)
     case data[:object_attributes][:status]
     when 'success'
       !notify_only_broken_pipelines?

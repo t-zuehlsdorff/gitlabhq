@@ -102,6 +102,7 @@ constraints(ProjectUrlConstrainer.new) do
           get :merge_widget_refresh
           post :cancel_merge_when_pipeline_succeeds
           get :ci_status
+          get :pipeline_status
           get :ci_environments_status
           post :toggle_subscription
           post :remove_wip
@@ -134,6 +135,8 @@ constraints(ProjectUrlConstrainer.new) do
       end
 
       resources :protected_branches, only: [:index, :show, :create, :update, :destroy], constraints: { id: Gitlab::Regex.git_reference_regex }
+      resources :protected_tags, only: [:index, :show, :create, :update, :destroy], constraints: { id: Gitlab::Regex.git_reference_regex }
+
       resources :variables, only: [:index, :show, :update, :create, :destroy]
       resources :triggers, only: [:index, :create, :edit, :update, :destroy] do
         member do
@@ -152,6 +155,7 @@ constraints(ProjectUrlConstrainer.new) do
           post :cancel
           post :retry
           get :builds
+          get :status
         end
       end
 
@@ -164,7 +168,7 @@ constraints(ProjectUrlConstrainer.new) do
         end
 
         collection do
-          get :folder, path: 'folders/:id'
+          get :folder, path: 'folders/*id', constraints: { format: /(html|json)/ }
         end
       end
 
@@ -219,7 +223,15 @@ constraints(ProjectUrlConstrainer.new) do
         end
       end
 
-      resources :container_registry, only: [:index, :destroy], constraints: { id: Gitlab::Regex.container_registry_reference_regex }
+      resources :container_registry, only: [:index, :destroy],
+                                     controller: 'registry/repositories'
+
+      namespace :registry do
+        resources :repository, only: [] do
+          resources :tags, only: [:destroy],
+                           constraints: { id: Gitlab::Regex.container_registry_reference_regex }
+        end
+      end
 
       resources :milestones, constraints: { id: /\d+/ } do
         member do
@@ -248,6 +260,7 @@ constraints(ProjectUrlConstrainer.new) do
           get :referenced_merge_requests
           get :related_branches
           get :can_create_branch
+          get :rendered_title
         end
         collection do
           post  :bulk_update

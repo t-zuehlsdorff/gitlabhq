@@ -3,14 +3,14 @@ class Projects::MergeRequestsController < Projects::ApplicationController
   include DiffForPath
   include DiffHelper
   include IssuableActions
-  include NotesHelper
+  include RendersNotes
   include ToggleAwardEmoji
   include IssuableCollections
 
   before_action :module_enabled
   before_action :merge_request, only: [
     :edit, :update, :show, :diffs, :commits, :conflicts, :conflict_for_path, :pipelines, :merge, :merge_check,
-    :ci_status, :ci_environments_status, :toggle_subscription, :cancel_merge_when_pipeline_succeeds, :remove_wip, :resolve_conflicts, :assign_related_issues
+    :ci_status, :pipeline_status, :ci_environments_status, :toggle_subscription, :cancel_merge_when_pipeline_succeeds, :remove_wip, :resolve_conflicts, :assign_related_issues
   ]
   before_action :validates_merge_request, only: [:show, :diffs, :commits, :pipelines]
   before_action :define_show_vars, only: [:show, :diffs, :commits, :conflicts, :conflict_for_path, :builds, :pipelines]
@@ -39,10 +39,11 @@ class Projects::MergeRequestsController < Projects::ApplicationController
     @collection_type    = "MergeRequest"
     @merge_requests     = merge_requests_collection
     @merge_requests     = @merge_requests.page(params[:page])
+    @merge_requests     = @merge_requests.includes(merge_request_diff: :merge_request)
     @issuable_meta_data = issuable_meta_data(@merge_requests, @collection_type)
 
     if @merge_requests.out_of_range? && @merge_requests.total_pages != 0
-      return redirect_to url_for(params.merge(page: @merge_requests.total_pages))
+      return redirect_to url_for(params.merge(page: @merge_requests.total_pages, only_path: true))
     end
 
     if params[:label_name].present?
@@ -97,31 +98,31 @@ class Projects::MergeRequestsController < Projects::ApplicationController
   def diffs
     apply_diff_view_cookie!
 
-    @merge_request_diff =
-      if params[:diff_id]
-        @merge_request.merge_request_diffs.viewable.find(params[:diff_id])
-      else
-        @merge_request.merge_request_diff
-      end
-
-    @merge_request_diffs = @merge_request.merge_request_diffs.viewable.select_without_diff
-    @comparable_diffs = @merge_request_diffs.select { |diff| diff.id < @merge_request_diff.id }
-
-    if params[:start_sha].present?
-      @start_sha = params[:start_sha]
-      @start_version = @comparable_diffs.find { |diff| diff.head_commit_sha == @start_sha }
-
-      unless @start_version
-        @start_sha = @merge_request_diff.head_commit_sha
-        @start_version = @merge_request_diff
-      end
-    end
-
-    @environment = @merge_request.environments_for(current_user).last
-
     respond_to do |format|
       format.html { define_discussion_vars }
       format.json do
+        @merge_request_diff =
+          if params[:diff_id]
+            @merge_request.merge_request_diffs.viewable.find(params[:diff_id])
+          else
+            @merge_request.merge_request_diff
+          end
+
+        @merge_request_diffs = @merge_request.merge_request_diffs.viewable.select_without_diff
+        @comparable_diffs = @merge_request_diffs.select { |diff| diff.id < @merge_request_diff.id }
+
+        if params[:start_sha].present?
+          @start_sha = params[:start_sha]
+          @start_version = @comparable_diffs.find { |diff| diff.head_commit_sha == @start_sha }
+
+          unless @start_version
+            @start_sha = @merge_request_diff.head_commit_sha
+            @start_version = @merge_request_diff
+          end
+        end
+
+        @environment = @merge_request.environments_for(current_user).last
+
         if @start_sha
           compared_diff_version
         else
@@ -232,6 +233,8 @@ class Projects::MergeRequestsController < Projects::ApplicationController
       end
 
       format.json do
+        Gitlab::PollingInterval.set_header(response, interval: 10_000)
+
         render json: PipelineSerializer
           .new(project: @project, user: @current_user)
           .represent(@pipelines)
@@ -244,6 +247,8 @@ class Projects::MergeRequestsController < Projects::ApplicationController
       format.html { define_new_vars }
       format.json do
         define_pipelines_vars
+
+        Gitlab::PollingInterval.set_header(response, interval: 10_000)
 
         render json: {
           pipelines: PipelineSerializer
@@ -402,7 +407,7 @@ class Projects::MergeRequestsController < Projects::ApplicationController
 
     if params[:ref].present?
       @ref = params[:ref]
-      @commit = @repository.commit(@ref)
+      @commit = @repository.commit("refs/heads/#{@ref}")
     end
 
     render layout: false
@@ -413,7 +418,7 @@ class Projects::MergeRequestsController < Projects::ApplicationController
 
     if params[:ref].present?
       @ref = params[:ref]
-      @commit = @target_project.commit(@ref)
+      @commit = @target_project.commit("refs/heads/#{@ref}")
     end
 
     render layout: false
@@ -451,7 +456,7 @@ class Projects::MergeRequestsController < Projects::ApplicationController
 
     if pipeline
       status = pipeline.status
-      coverage = pipeline.try(:coverage)
+      coverage = pipeline.coverage
 
       status = "success_with_warnings" if pipeline.success? && pipeline.has_warnings?
 
@@ -471,6 +476,12 @@ class Projects::MergeRequestsController < Projects::ApplicationController
     }
 
     render json: response
+  end
+
+  def pipeline_status
+    render json: PipelineSerializer
+      .new(project: @project, user: @current_user)
+      .represent_status(@merge_request.head_pipeline)
   end
 
   def ci_environments_status
@@ -563,20 +574,7 @@ class Projects::MergeRequestsController < Projects::ApplicationController
     @note = @project.notes.new(noteable: @merge_request)
 
     @discussions = @merge_request.discussions
-
-    preload_noteable_for_regular_notes(@discussions.flat_map(&:notes))
-
-    # This is not executed lazily
-    @notes = Banzai::NoteRenderer.render(
-      @discussions.flat_map(&:notes),
-      @project,
-      current_user,
-      @path,
-      @project_wiki,
-      @ref
-    )
-
-    preload_max_access_for_authors(@notes, @project)
+    @notes = prepare_notes_for_rendering(@discussions.flat_map(&:notes))
   end
 
   def define_widget_vars
@@ -589,22 +587,15 @@ class Projects::MergeRequestsController < Projects::ApplicationController
   end
 
   def define_diff_comment_vars
-    @comments_target = {
+    @new_diff_note_attrs = {
       noteable_type: 'MergeRequest',
       noteable_id: @merge_request.id
     }
 
     @use_legacy_diff_notes = !@merge_request.has_complete_diff_refs?
-    @grouped_diff_discussions = @merge_request.notes.inc_relations_for_view.grouped_diff_discussions
 
-    Banzai::NoteRenderer.render(
-      @grouped_diff_discussions.values.flat_map(&:notes),
-      @project,
-      current_user,
-      @path,
-      @project_wiki,
-      @ref
-    )
+    @grouped_diff_discussions = @merge_request.grouped_diff_discussions
+    @notes = prepare_notes_for_rendering(@grouped_diff_discussions.values.flatten.flat_map(&:notes))
   end
 
   def define_pipelines_vars

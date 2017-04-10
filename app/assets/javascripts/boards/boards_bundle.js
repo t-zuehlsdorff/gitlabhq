@@ -38,6 +38,10 @@ $(() => {
 
   Store.create();
 
+  // hack to allow sidebar scripts like milestone_select manipulate the BoardsStore
+  gl.issueBoards.boardStoreIssueSet = (...args) => Vue.set(Store.detail.issue, ...args);
+  gl.issueBoards.boardStoreIssueDelete = (...args) => Vue.delete(Store.detail.issue, ...args);
+
   gl.IssueBoardsApp = new Vue({
     el: $boardApp,
     components: {
@@ -79,7 +83,7 @@ $(() => {
           resp.json().forEach((board) => {
             const list = Store.addList(board);
 
-            if (list.type === 'done') {
+            if (list.type === 'closed') {
               list.position = Infinity;
             }
           });

@@ -1,6 +1,6 @@
 - @no_container = true
 - page_title "#{@build.name} (##{@build.id})", "Jobs"
-= render "projects/pipelines/head", build_subnav: true
+= render "projects/pipelines/head"
 
 %div{ class: container_class }
   .build-page
@@ -71,6 +71,11 @@
                   = custom_icon('scroll_down_hover_active')
         #up-build-trace
         %pre.build-trace#build-trace
+          .js-truncated-info.truncated-info.hidden
+            %span<
+              Showing last
+              %span.js-truncated-info-size><
+              KiB of log
           %code.bash.js-build-output
           .build-loader-animation.js-build-refresh
 

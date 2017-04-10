@@ -24,7 +24,6 @@
 /* global Search */
 /* global Admin */
 /* global NamespaceSelects */
-/* global ShortcutsDashboardNavigation */
 /* global Project */
 /* global ProjectAvatar */
 /* global CompareAutocomplete */
@@ -33,17 +32,22 @@
 /* global ProjectShow */
 /* global Labels */
 /* global Shortcuts */
+/* global Sidebar */
+
 import Issue from './issue';
 
 import BindInOut from './behaviors/bind_in_out';
+import Group from './group';
 import GroupName from './group_name';
 import GroupsList from './groups_list';
 import ProjectsList from './projects_list';
 import MiniPipelineGraph from './mini_pipeline_graph_dropdown';
 import BlobLinePermalinkUpdater from './blob/blob_line_permalink_updater';
+import BlobForkSuggestion from './blob/blob_fork_suggestion';
+import UserCallout from './user_callout';
+import { ProtectedTagCreate, ProtectedTagEditList } from './protected_tags';
 
 const ShortcutsBlob = require('./shortcuts_blob');
-const UserCallout = require('./user_callout');
 
 (function() {
   var Dispatcher;
@@ -84,6 +88,12 @@ const UserCallout = require('./user_callout');
           skipResetBindings: true,
           fileBlobPermalinkUrl,
         });
+
+        new BlobForkSuggestion(
+          document.querySelector('.js-edit-blob-link-fork-toggler'),
+          document.querySelector('.js-cancel-fork-suggestion'),
+          document.querySelector('.js-file-fork-suggestion-section'),
+        );
       }
 
       switch (page) {
@@ -118,6 +128,7 @@ const UserCallout = require('./user_callout');
         case 'groups:milestones:show':
         case 'dashboard:milestones:show':
           new Milestone();
+          new Sidebar();
           break;
         case 'dashboard:todos:index':
           new gl.Todos();
@@ -223,9 +234,11 @@ const UserCallout = require('./user_callout');
         case 'projects:pipelines:builds':
         case 'projects:pipelines:show':
           const { controllerAction } = document.querySelector('.js-pipeline-container').dataset;
+          const pipelineStatusUrl = `${document.querySelector('.js-pipeline-tab-link a').getAttribute('href')}/status.json`;
 
           new gl.Pipelines({
             initTabs: true,
+            pipelineStatusUrl,
             tabsOptions: {
               action: controllerAction,
               defaultAction: 'pipelines',
@@ -259,8 +272,9 @@ const UserCallout = require('./user_callout');
         case 'groups:create':
         case 'admin:groups:create':
           BindInOut.initAll();
-        case 'groups:new':
-        case 'admin:groups:new':
+          new Group();
+          new GroupAvatar();
+          break;
         case 'groups:edit':
         case 'admin:groups:edit':
           new GroupAvatar();
@@ -318,8 +332,12 @@ const UserCallout = require('./user_callout');
           new Search();
           break;
         case 'projects:repository:show':
+          // Initialize Protected Branch Settings
           new gl.ProtectedBranchCreate();
           new gl.ProtectedBranchEditList();
+          // Initialize Protected Tag Settings
+          new ProtectedTagCreate();
+          new ProtectedTagEditList();
           break;
         case 'projects:ci_cd:show':
           new gl.ProjectVariables();
@@ -366,7 +384,6 @@ const UserCallout = require('./user_callout');
           break;
         case 'dashboard':
         case 'root':
-          shortcut_handler = new ShortcutsDashboardNavigation();
           new UserCallout();
           break;
         case 'groups':

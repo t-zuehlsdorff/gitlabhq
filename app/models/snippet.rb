@@ -2,6 +2,7 @@ class Snippet < ActiveRecord::Base
   include Gitlab::VisibilityLevel
   include Linguist::BlobHelper
   include CacheMarkdownField
+  include Noteable
   include Participable
   include Referable
   include Sortable
@@ -132,7 +133,8 @@ class Snippet < ActiveRecord::Base
   end
 
   def check_for_spam?
-    public?
+    visibility_level_changed?(to: Snippet::PUBLIC) ||
+      (public? && (title_changed? || content_changed?))
   end
 
   def spammable_entity_type

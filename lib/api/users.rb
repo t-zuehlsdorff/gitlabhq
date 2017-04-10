@@ -27,7 +27,7 @@ module API
           optional :location, type: String, desc: 'The location of the user'
           optional :admin, type: Boolean, desc: 'Flag indicating the user is an administrator'
           optional :can_create_group, type: Boolean, desc: 'Flag indicating the user can create groups'
-          optional :confirm, type: Boolean, desc: 'Flag indicating the account needs to be confirmed'
+          optional :skip_confirmation, type: Boolean, default: false, desc: 'Flag indicating the account is confirmed'
           optional :external, type: Boolean, desc: 'Flag indicating the user is an external user'
           all_or_none_of :extern_uid, :provider
         end
@@ -56,10 +56,10 @@ module API
           users = users.active if params[:active]
           users = users.search(params[:search]) if params[:search].present?
           users = users.blocked if params[:blocked]
-          users = users.external if params[:external] && current_user.is_admin?
+          users = users.external if params[:external] && current_user.admin?
         end
 
-        entity = current_user.is_admin? ? Entities::UserPublic : Entities::UserBasic
+        entity = current_user.admin? ? Entities::UserPublic : Entities::UserBasic
         present paginate(users), with: entity
       end
 
@@ -73,7 +73,7 @@ module API
         user = User.find_by(id: params[:id])
         not_found!('User') unless user
 
-        if current_user && current_user.is_admin?
+        if current_user && current_user.admin?
           present user, with: Entities::UserPublic
         elsif can?(current_user, :read_user, user)
           present user, with: Entities::User
@@ -97,29 +97,10 @@ module API
       post do
         authenticated_as_admin!
 
-        # Filter out params which are used later
-        user_params = declared_params(include_missing: false)
-        identity_attrs = user_params.slice(:provider, :extern_uid)
-        confirm = user_params.delete(:confirm)
-        user = User.new(user_params.except(:extern_uid, :provider, :reset_password))
+        params = declared_params(include_missing: false)
+        user = ::Users::CreateService.new(current_user, params).execute
 
-        if user_params.delete(:reset_password)
-          user.attributes = {
-            force_random_password: true,
-            password_expires_at: nil,
-            created_by_id: current_user.id
-          }
-          user.generate_password
-          user.generate_reset_token
-        end
-
-        user.skip_confirmation! unless confirm
-
-        if identity_attrs.any?
-          user.identities.build(identity_attrs)
-        end
-
-        if user.save
+        if user.persisted?
           present user, with: Entities::UserPublic
         else
           conflict!('Email has already been taken') if User.
@@ -312,7 +293,7 @@ module API
         user = User.find_by(id: params[:id])
         not_found!('User') unless user
 
-        ::Users::DestroyService.new(current_user).execute(user)
+        DeleteUserWorker.perform_async(current_user.id, user.id)
       end
 
       desc 'Block a user. Available only for admins.'
@@ -360,7 +341,7 @@ module API
         not_found!('User') unless user
 
         events = user.events.
-          merge(ProjectsFinder.new.execute(current_user)).
+          merge(ProjectsFinder.new(current_user: current_user).execute).
           references(:project).
           with_associations.
           recent

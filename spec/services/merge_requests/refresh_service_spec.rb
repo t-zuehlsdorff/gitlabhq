@@ -1,7 +1,7 @@
 require 'spec_helper'
 
 describe MergeRequests::RefreshService, services: true do
-  let(:project) { create(:project) }
+  let(:project) { create(:project, :repository) }
   let(:user) { create(:user) }
   let(:service) { MergeRequests::RefreshService }
 
@@ -11,7 +11,7 @@ describe MergeRequests::RefreshService, services: true do
       group = create(:group)
       group.add_owner(@user)
 
-      @project = create(:project, namespace: group)
+      @project = create(:project, :repository, namespace: group)
       @fork_project = Projects::ForkService.new(@project, @user).execute
       @merge_request = create(:merge_request,
                               source_project: @project,
@@ -49,7 +49,34 @@ describe MergeRequests::RefreshService, services: true do
 
     context 'push to origin repo source branch' do
       let(:refresh_service) { service.new(@project, @user) }
+
       before do
+        allow(refresh_service).to receive(:execute_hooks)
+        refresh_service.execute(@oldrev, @newrev, 'refs/heads/master')
+        reload_mrs
+      end
+
+      it 'executes hooks with update action' do
+        expect(refresh_service).to have_received(:execute_hooks).
+          with(@merge_request, 'update', @oldrev)
+
+        expect(@merge_request.notes).not_to be_empty
+        expect(@merge_request).to be_open
+        expect(@merge_request.merge_when_pipeline_succeeds).to be_falsey
+        expect(@merge_request.diff_head_sha).to eq(@newrev)
+        expect(@fork_merge_request).to be_open
+        expect(@fork_merge_request.notes).to be_empty
+        expect(@build_failed_todo).to be_done
+        expect(@fork_build_failed_todo).to be_done
+      end
+    end
+
+    context 'push to origin repo source branch when an MR was reopened' do
+      let(:refresh_service) { service.new(@project, @user) }
+
+      before do
+        @merge_request.update(state: :reopened)
+
         allow(refresh_service).to receive(:execute_hooks)
         refresh_service.execute(@oldrev, @newrev, 'refs/heads/master')
         reload_mrs
@@ -252,7 +279,7 @@ describe MergeRequests::RefreshService, services: true do
 
       context 'when the merge request is sourced from a different project' do
         it 'creates a `MergeRequestsClosingIssues` record for each issue closed by a commit' do
-          forked_project = create(:project)
+          forked_project = create(:project, :repository)
           create(:forked_project_link, forked_to_project: forked_project, forked_from_project: @project)
 
           merge_request = create(:merge_request,

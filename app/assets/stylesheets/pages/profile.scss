@@ -74,7 +74,6 @@
   display: inline;
 
   a {
-    color: $blue-dark;
     text-decoration: none;
   }
 }
@@ -229,6 +228,14 @@
 
   .user-profile-nav {
     font-size: 0;
+  }
+
+  .fade-right {
+    right: 0;
+  }
+
+  .fade-left {
+    left: 0;
   }
 
   @media (max-width: $screen-xs-max) {

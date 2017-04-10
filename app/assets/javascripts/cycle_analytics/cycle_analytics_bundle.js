@@ -1,9 +1,9 @@
-/* global Cookies */
 /* global Flash */
 
 import Vue from 'vue';
+import Cookies from 'js-cookie';
+import LimitWarningComponent from './components/limit_warning_component';
 
-window.Cookies = require('js-cookie');
 require('./components/stage_code_component');
 require('./components/stage_issue_component');
 require('./components/stage_plan_component');
@@ -131,5 +131,6 @@ $(() => {
   });
 
   // Register global components
+  Vue.component('limit-warning', LimitWarningComponent);
   Vue.component('total-time', gl.cycleAnalytics.TotalTimeComponent);
 });
