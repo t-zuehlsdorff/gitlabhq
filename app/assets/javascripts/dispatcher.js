@@ -91,11 +91,13 @@ const ShortcutsBlob = require('./shortcuts_blob');
           fileBlobPermalinkUrl,
         });
 
-        new BlobForkSuggestion(
-          document.querySelector('.js-edit-blob-link-fork-toggler'),
-          document.querySelector('.js-cancel-fork-suggestion'),
-          document.querySelector('.js-file-fork-suggestion-section'),
-        );
+        new BlobForkSuggestion({
+          openButtons: document.querySelectorAll('.js-edit-blob-link-fork-toggler'),
+          forkButtons: document.querySelectorAll('.js-fork-suggestion-button'),
+          cancelButtons: document.querySelectorAll('.js-cancel-fork-suggestion-button'),
+          suggestionSections: document.querySelectorAll('.js-file-fork-suggestion-section'),
+          actionTextPieces: document.querySelectorAll('.js-file-fork-suggestion-section-action'),
+        });
       }
 
       switch (page) {
@@ -150,12 +152,12 @@ const ShortcutsBlob = require('./shortcuts_blob');
         case 'projects:milestones:new':
         case 'projects:milestones:edit':
         case 'projects:milestones:update':
+        case 'groups:milestones:new':
+        case 'groups:milestones:edit':
+        case 'groups:milestones:update':
           new ZenMode();
           new gl.DueDateSelectors();
           new gl.GLForm($('.milestone-form'));
-          break;
-        case 'groups:milestones:new':
-          new ZenMode();
           break;
         case 'projects:compare:show':
           new gl.Diff();
@@ -367,6 +369,9 @@ const ShortcutsBlob = require('./shortcuts_blob');
         case 'admin':
           new Admin();
           switch (path[1]) {
+            case 'cohorts':
+              new gl.UsagePing();
+              break;
             case 'groups':
               new UsersSelect();
               break;
