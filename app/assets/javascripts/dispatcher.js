@@ -48,6 +48,7 @@ import BlobForkSuggestion from './blob/blob_fork_suggestion';
 import UserCallout from './user_callout';
 import { ProtectedTagCreate, ProtectedTagEditList } from './protected_tags';
 import ShortcutsWiki from './shortcuts_wiki';
+import BlobViewer from './blob/viewer/index';
 
 const ShortcutsBlob = require('./shortcuts_blob');
 
@@ -97,7 +98,8 @@ const ShortcutsBlob = require('./shortcuts_blob');
           cancelButtons: document.querySelectorAll('.js-cancel-fork-suggestion-button'),
           suggestionSections: document.querySelectorAll('.js-file-fork-suggestion-section'),
           actionTextPieces: document.querySelectorAll('.js-file-fork-suggestion-section-action'),
-        });
+        })
+          .init();
       }
 
       switch (page) {
@@ -298,6 +300,7 @@ const ShortcutsBlob = require('./shortcuts_blob');
           gl.TargetBranchDropDown.bootstrap();
           break;
         case 'projects:blob:show':
+          new BlobViewer();
           gl.TargetBranchDropDown.bootstrap();
           initBlob();
           break;
