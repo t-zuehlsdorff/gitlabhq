@@ -93,6 +93,18 @@ The current default version of PostgreSQL in the Portstree is 9.3 and is therefo
 
     # Try connecting to the new database with the new user
     psql -U git -d gitlabhq_production
+      
+    # Check if the `pg_trgm` extension is enabled by executing this SQL-statement:
+    SELECT true AS enabled
+    FROM pg_available_extensions
+    WHERE name = 'pg_trgm'
+    AND installed_version IS NOT NULL;
+
+    # If the extension is enabled this will produce the following output:
+    enabled
+    ---------
+     t
+    (1 row)
 
     # Quit the database session
     gitlabhq_production> \q
@@ -167,6 +179,9 @@ save to change the home directory:
 
     # Disable 'git gc --auto' because GitLab already runs 'git gc' when needed
     git config --global gc.auto 0
+
+    # Enable packfile bitmaps
+    git config --global repack.writeBitmaps true
     ```
 
 **Important Note:** Make sure to edit both `gitlab.yml` and `unicorn.rb` to match your setup.
@@ -360,6 +375,13 @@ If you want to connect the Redis server via socket, then use the "unix:" URL sch
 
     # example
     production: unix:/path/to/redis/socket
+
+Also you can use environment variables in the `config/resque.yml` file:
+
+    # example
+    production:
+      url: <%= ENV.fetch('GITLAB_REDIS_URL') %>
+
 
 ### Custom SSH Connection
 
