@@ -32,14 +32,11 @@ There are two methods to install Gitlab: as binary package (fast, easy) or compi
 
 It is recommended to use binary package installation. All dependencies will be installed automatically:
 
-    ```bash
     pkg install www/gitlab
     sysrc gitlab_enable=YES
-    ```
 
 In order to get the latest version and timely security patches it may be necessary to switch to 'latest' instead of 'quarterly' packages.
 
-    ```bash
     mkdir -p /usr/local/etc/pkg/repos
     vi /usr/local/etc/pkg/repos/FreeBSD.conf
 
@@ -50,15 +47,12 @@ In order to get the latest version and timely security patches it may be necessa
     }
 
     pkg upgrade
-    ```
 
 You are free to build it from source. Please checkout the latest ports-tree and follow these steps:
 
-    ```bash
     cd /usr/ports/www/gitlab
     make install
     sysrc gitlab_enable=YES
-    ```
 
 ## 2. Database
 
@@ -66,7 +60,6 @@ We recommend using a PostgreSQL database. For MySQL check [MySQL setup guide](da
 The current default version of PostgreSQL in the Portstree is 9.3 and is therefore used. *Note*: we do not cope how to install PostgreSQL properly.
 *Attention*: since PostgreSQL 9.6 the "pgsql" user is renamed to "postgres". PostgreSQL 9.6 user need to change the name accordingly.
 
-    ```bash
     # Install the database packages
     # If you want newer versions change them appropriately to: postgresql94-server, postgresql94-server, etc.
     pkg install postgresql93-server postgresql93-contrib
@@ -111,14 +104,12 @@ The current default version of PostgreSQL in the Portstree is 9.3 and is therefo
 
     # Connect as superuser to gitlab db and enable pg_trgm extension
     psql -U pgsql -d gitlabhq_production -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
-    ```
 
 ## 3. Redis
 
 Redis is automatically installed, when installing Gitlab. But some configuration is needed.
 The following steps must be done as superuser!
 
-    ```bash
     # Enable Redis socket
     echo 'unixsocket /var/run/redis/redis.sock' >> /usr/local/etc/redis.conf
 
@@ -133,7 +124,6 @@ The following steps must be done as superuser!
 
     # Add git user to redis group
     pw groupmod redis -m git
-    ```
 
 ## 4. GitLab
 
@@ -143,7 +133,6 @@ Currently the default home directory of the git user used by FreeBSD is /usr/loc
 But GitLab expects /home/git. As long as you do not use the port devel/py-gitosis it is
 save to change the home directory:
 
-    ```bash
     # You need to be root user
     vipw -d /etc
     
@@ -152,11 +141,9 @@ save to change the home directory:
     
     # replace it with this line:
     git:*:211:211::0:0:gitosis user:/usr/home/git:/bin/sh
-    ```
 
 ### Configure It
 
-    ```bash
     # You need to be root user
 
     # Go to GitLab installation folder
@@ -182,7 +169,6 @@ save to change the home directory:
 
     # Enable packfile bitmaps
     git config --global repack.writeBitmaps true
-    ```
 
 **Important Note:** Make sure to edit both `gitlab.yml` and `unicorn.rb` to match your setup.
 
@@ -190,7 +176,6 @@ save to change the home directory:
 
 ### Configure GitLab DB Settings
 
-    ```bash
     # Remote PostgreSQL only:
     # Update username/password in config/database.yml.
     # You only need to adapt the production settings (first part).
@@ -198,24 +183,19 @@ save to change the home directory:
     # Change 'secure password' with the value you have given to $password
     # You can keep the double quotes around the password
     vi config/database.yml
-    ```
 
 ### Initialize Database and Activate Advanced Features
 
-    ```bash
     # make sure you are still using the root user and in /usr/local/www/gitlab
     rake gitlab:setup RAILS_ENV=production
 
     # Type 'yes' to create the database tables.
 
     # When done you see 'Administrator account created:'
-    ```
 
 **Note:** You can set the Administrator/root password by supplying it in environmental variable `GITLAB_ROOT_PASSWORD` as seen below. If you don't set the password (and it is set to the default one) please wait with exposing GitLab to the public internet until the installation is done and you've logged into the server the first time. During the first login you'll be forced to change the default password.
 
-    ```bash
     rake gitlab:setup RAILS_ENV=production GITLAB_ROOT_PASSWORD=yourpassword
-    ```
 
 ### Secure secrets.yml
 
@@ -227,24 +207,18 @@ Otherwise your secrets are exposed if one of your backups is compromised.
 
 Check if GitLab and its environment are configured correctly:
 
-    ```bash
     rake gitlab:env:info RAILS_ENV=production
-    ```
 
 ### Compile Assets
 
-    ```bash
     rake assets:precompile RAILS_ENV=production
-    ```
 
 ### Start Your GitLab Instance
 
-    ```bash
     # use this command as root user to start gitlab:
     service gitlab start
     # or this:
     /usr/local/etc/rc.d/gitlab restart
-    ```
 
 ## 7. Nginx
 
@@ -252,24 +226,20 @@ Check if GitLab and its environment are configured correctly:
 
 ### Installation
 
-    ```bash
     pkg install nginx
 
     # create nginx log directory
     mkdir /var/log/nginx
-    ```
 
 ### Site Configuration
 
 Just include the provided configuration in your nginx configuration.
 
-    ```bash
     # do this as root:
     vi /usr/local/etc/nginx/nginx.conf
 
     # within the 'http' configuration block add:
     include       /usr/local/www/gitlab/lib/support/nginx/gitlab;
-    ```
 
 **Note:** If you want to use HTTPS, replace the `gitlab` Nginx config with `gitlab-ssl`. See [Using HTTPS](#using-https) for HTTPS configuration details.
 
@@ -277,18 +247,14 @@ Just include the provided configuration in your nginx configuration.
 
 Validate your `gitlab` or `gitlab-ssl` Nginx config file with the following command:
 
-    ```bash
     # do this as root:
     nginx -t
-    ```
 
 You should receive `syntax is okay` and `test is successful` messages. If you receive errors check your `gitlab` or `gitlab-ssl` Nginx config file for typos, etc. as indicated in the error message given.
 
 ### Restart
 
-    ```bash
     service nginx restart
-    ```
 
 ## Done!
 
@@ -296,11 +262,9 @@ You should receive `syntax is okay` and `test is successful` messages. If you re
 
 To make sure you didn't miss anything run a more thorough check with:
 
-    ```bash
     su
     su git
     rake gitlab:check RAILS_ENV=production
-    ```
 
 If all items are green, then congratulations on successfully installing GitLab!
 
@@ -343,12 +307,11 @@ Using a self-signed certificate is discouraged but if you must use it follow the
 
 1. Generate a self-signed SSL certificate:
 
-    ```bash
     mkdir -p /usr/local/etc/nginx/ssl/
     cd /usr/local/etc/nginx/ssl/
     openssl req -newkey rsa:2048 -x509 -nodes -days 3560 -out gitlab.crt -keyout gitlab.key
     chmod o-r gitlab.key
-    ```
+
 1. In the `config.yml` of gitlab-shell set `self_signed_cert` to `true`.
 
 ### Additional Markup Styles
