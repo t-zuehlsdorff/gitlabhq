@@ -170,6 +170,9 @@ save to change the home directory:
     # Enable packfile bitmaps
     su -l git -c "git config --global repack.writeBitmaps true"
 
+    # Make sure .ssh directory exists
+    su -l git -c "mkdir -p /home/git/.ssh"
+
 **Important Note:** Make sure to edit both `gitlab.yml` and `unicorn.rb` to match your setup.
 
 **Note:** If you want to use HTTPS, see [Using HTTPS](#using-https) for the additional steps.
