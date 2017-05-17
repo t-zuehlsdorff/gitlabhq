@@ -102,7 +102,7 @@ The current default version of PostgreSQL in the Portstree is 9.3 and is therefo
     # Quit the database session
     gitlabhq_production> \q
 
-    # Connect as superuser to gitlab db and enable pg_trgm extension
+    # Connect as superuser to gitlab db and enable pg_trgm extension if not installed
     psql -U pgsql -d gitlabhq_production -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
 ## 3. Redis
@@ -162,13 +162,13 @@ save to change the home directory:
 
     # Configure Git global settings for git user
     # 'autocrlf' is needed for the web editor
-    git config --global core.autocrlf input
+    su -l git -c "git config --global core.autocrlf input"
 
     # Disable 'git gc --auto' because GitLab already runs 'git gc' when needed
-    git config --global gc.auto 0
+    su -l git -c "git config --global gc.auto 0"
 
     # Enable packfile bitmaps
-    git config --global repack.writeBitmaps true
+    su -l git -c "git config --global repack.writeBitmaps true"
 
 **Important Note:** Make sure to edit both `gitlab.yml` and `unicorn.rb` to match your setup.
 
