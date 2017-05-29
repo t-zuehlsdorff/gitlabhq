@@ -97,6 +97,18 @@ describe User, models: true do
         expect(user.errors.values).to eq [['dashboard is a reserved name']]
       end
 
+      it 'allows child names' do
+        user = build(:user, username: 'avatar')
+
+        expect(user).to be_valid
+      end
+
+      it 'allows wildcard names' do
+        user = build(:user, username: 'blob')
+
+        expect(user).to be_valid
+      end
+
       it 'validates uniqueness' do
         expect(subject).to validate_uniqueness_of(:username).case_insensitive
       end
@@ -332,6 +344,35 @@ describe User, models: true do
     end
   end
 
+  describe '#update_tracked_fields!', :redis do
+    let(:request) { OpenStruct.new(remote_ip: "127.0.0.1") }
+    let(:user) { create(:user) }
+
+    it 'writes trackable attributes' do
+      expect do
+        user.update_tracked_fields!(request)
+      end.to change { user.reload.current_sign_in_at }
+    end
+
+    it 'does not write trackable attributes when called a second time within the hour' do
+      user.update_tracked_fields!(request)
+
+      expect do
+        user.update_tracked_fields!(request)
+      end.not_to change { user.reload.current_sign_in_at }
+    end
+
+    it 'writes trackable attributes for a different user' do
+      user2 = create(:user)
+
+      user.update_tracked_fields!(request)
+
+      expect do
+        user2.update_tracked_fields!(request)
+      end.to change { user2.reload.current_sign_in_at }
+    end
+  end
+
   shared_context 'user keys' do
     let(:user) { create(:user) }
     let!(:key) { create(:key, user: user) }
@@ -396,6 +437,22 @@ describe User, models: true do
     it "has authentication token" do
       user = create(:user)
       expect(user.authentication_token).not_to be_blank
+    end
+  end
+
+  describe 'ensure incoming email token' do
+    it 'has incoming email token' do
+      user = create(:user)
+      expect(user.incoming_email_token).not_to be_blank
+    end
+  end
+
+  describe 'rss token' do
+    it 'ensures an rss token on read' do
+      user = create(:user, rss_token: nil)
+      rss_token = user.rss_token
+      expect(rss_token).not_to be_blank
+      expect(user.reload.rss_token).to eq rss_token
     end
   end
 
@@ -635,7 +692,7 @@ describe User, models: true do
       protocol_and_expectation = {
         'http' => false,
         'ssh' => true,
-        '' => true,
+        '' => true
       }
 
       protocol_and_expectation.each do |protocol, expected|
@@ -837,6 +894,75 @@ describe User, models: true do
     end
   end
 
+  describe '.find_by_full_path' do
+    let!(:user) { create(:user) }
+
+    context 'with a route matching the given path' do
+      let!(:route) { user.namespace.route }
+
+      it 'returns the user' do
+        expect(User.find_by_full_path(route.path)).to eq(user)
+      end
+
+      it 'is case-insensitive' do
+        expect(User.find_by_full_path(route.path.upcase)).to eq(user)
+        expect(User.find_by_full_path(route.path.downcase)).to eq(user)
+      end
+    end
+
+    context 'with a redirect route matching the given path' do
+      let!(:redirect_route) { user.namespace.redirect_routes.create(path: 'foo') }
+
+      context 'without the follow_redirects option' do
+        it 'returns nil' do
+          expect(User.find_by_full_path(redirect_route.path)).to eq(nil)
+        end
+      end
+
+      context 'with the follow_redirects option set to true' do
+        it 'returns the user' do
+          expect(User.find_by_full_path(redirect_route.path, follow_redirects: true)).to eq(user)
+        end
+
+        it 'is case-insensitive' do
+          expect(User.find_by_full_path(redirect_route.path.upcase, follow_redirects: true)).to eq(user)
+          expect(User.find_by_full_path(redirect_route.path.downcase, follow_redirects: true)).to eq(user)
+        end
+      end
+    end
+
+    context 'without a route or a redirect route matching the given path' do
+      context 'without the follow_redirects option' do
+        it 'returns nil' do
+          expect(User.find_by_full_path('unknown')).to eq(nil)
+        end
+      end
+      context 'with the follow_redirects option set to true' do
+        it 'returns nil' do
+          expect(User.find_by_full_path('unknown', follow_redirects: true)).to eq(nil)
+        end
+      end
+    end
+
+    context 'with a group route matching the given path' do
+      context 'when the group namespace has an owner_id (legacy data)' do
+        let!(:group) { create(:group, path: 'group_path', owner: user) }
+
+        it 'returns nil' do
+          expect(User.find_by_full_path('group_path')).to eq(nil)
+        end
+      end
+
+      context 'when the group namespace does not have an owner_id' do
+        let!(:group) { create(:group, path: 'group_path') }
+
+        it 'returns nil' do
+          expect(User.find_by_full_path('group_path')).to eq(nil)
+        end
+      end
+    end
+  end
+
   describe 'all_ssh_keys' do
     it { is_expected.to have_many(:keys).dependent(:destroy) }
 
@@ -859,6 +985,24 @@ describe User, models: true do
     it 'is false if avatar is html page' do
       user.update_attribute(:avatar, 'uploads/avatar.html')
       expect(user.avatar_type).to eq(['only images allowed'])
+    end
+  end
+
+  describe '#avatar_url' do
+    let(:user) { create(:user, :with_avatar) }
+
+    context 'when avatar file is uploaded' do
+      let(:gitlab_host) { "http://#{Gitlab.config.gitlab.host}" }
+      let(:avatar_path) { "/uploads/user/avatar/#{user.id}/dk.png" }
+
+      it 'shows correct avatar url' do
+        expect(user.avatar_url).to eq(avatar_path)
+        expect(user.avatar_url(only_path: false)).to eq([gitlab_host, avatar_path].join)
+
+        allow(ActionController::Base).to receive(:asset_host).and_return(gitlab_host)
+
+        expect(user.avatar_url).to eq([gitlab_host, avatar_path].join)
+      end
     end
   end
 
@@ -1649,6 +1793,42 @@ describe User, models: true do
 
     it 'only counts active and non internal users' do
       expect(User.active.count).to eq(1)
+    end
+  end
+
+  describe 'preferred language' do
+    it 'is English by default' do
+      user = create(:user)
+
+      expect(user.preferred_language).to eq('en')
+    end
+  end
+
+  context '#invalidate_issue_cache_counts' do
+    let(:user) { build_stubbed(:user) }
+
+    it 'invalidates cache for issue counter' do
+      cache_mock = double
+
+      expect(cache_mock).to receive(:delete).with(['users', user.id, 'assigned_open_issues_count'])
+
+      allow(Rails).to receive(:cache).and_return(cache_mock)
+
+      user.invalidate_issue_cache_counts
+    end
+  end
+
+  context '#invalidate_merge_request_cache_counts' do
+    let(:user) { build_stubbed(:user) }
+
+    it 'invalidates cache for Merge Request counter' do
+      cache_mock = double
+
+      expect(cache_mock).to receive(:delete).with(['users', user.id, 'assigned_open_merge_requests_count'])
+
+      allow(Rails).to receive(:cache).and_return(cache_mock)
+
+      user.invalidate_merge_request_cache_counts
     end
   end
 end

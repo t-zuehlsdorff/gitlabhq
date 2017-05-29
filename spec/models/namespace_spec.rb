@@ -34,6 +34,13 @@ describe Namespace, models: true do
         let(:group) { build(:group, :nested, path: 'tree') }
 
         it { expect(group).not_to be_valid }
+
+        it 'rejects nested paths' do
+          parent = create(:group, :nested, path: 'environments')
+          namespace = build(:group, path: 'folders', parent: parent)
+
+          expect(namespace).not_to be_valid
+        end
       end
 
       context 'top-level group' do
@@ -47,6 +54,7 @@ describe Namespace, models: true do
   describe "Respond to" do
     it { is_expected.to respond_to(:human_name) }
     it { is_expected.to respond_to(:to_param) }
+    it { is_expected.to respond_to(:has_parent?) }
   end
 
   describe '#to_param' do
@@ -230,8 +238,8 @@ describe Namespace, models: true do
     end
 
     context 'in sub-groups' do
-      let(:parent) { create(:namespace, path: 'parent') }
-      let(:child) { create(:namespace, parent: parent, path: 'child') }
+      let(:parent) { create(:group, path: 'parent') }
+      let(:child) { create(:group, parent: parent, path: 'child') }
       let!(:project) { create(:project_empty_repo, namespace: child) }
       let(:path_in_dir) { File.join(repository_storage_path, 'parent', 'child') }
       let(:deleted_path) { File.join('parent', "child+#{child.id}+deleted") }

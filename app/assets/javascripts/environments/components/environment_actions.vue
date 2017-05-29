@@ -1,9 +1,7 @@
 <script>
-/* global Flash */
-/* eslint-disable no-new */
-
 import playIconSvg from 'icons/_icon_play.svg';
 import eventHub from '../event_hub';
+import loadingIcon from '../../vue_shared/components/loading_icon.vue';
 
 export default {
   props: {
@@ -12,11 +10,10 @@ export default {
       required: false,
       default: () => [],
     },
+  },
 
-    service: {
-      type: Object,
-      required: true,
-    },
+  components: {
+    loadingIcon,
   },
 
   data() {
@@ -38,15 +35,7 @@ export default {
 
       $(this.$refs.tooltip).tooltip('destroy');
 
-      this.service.postAction(endpoint)
-      .then(() => {
-        this.isLoading = false;
-        eventHub.$emit('refreshEnvironments');
-      })
-      .catch(() => {
-        this.isLoading = false;
-        new Flash('An error occured while making the request.');
-      });
+      eventHub.$emit('postAction', endpoint);
     },
 
     isActionDisabled(action) {
@@ -77,10 +66,7 @@ export default {
         <i
           class="fa fa-caret-down"
           aria-hidden="true"/>
-        <i
-          v-if="isLoading"
-          class="fa fa-spinner fa-spin"
-          aria-hidden="true"/>
+        <loading-icon v-if="isLoading" />
       </span>
     </button>
 

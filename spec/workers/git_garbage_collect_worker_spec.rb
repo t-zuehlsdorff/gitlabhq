@@ -6,7 +6,7 @@ describe GitGarbageCollectWorker do
   let(:project) { create(:project, :repository) }
   let(:shell) { Gitlab::Shell.new }
 
-  subject { GitGarbageCollectWorker.new }
+  subject { described_class.new }
 
   describe "#perform" do
     it "flushes ref caches when the task is 'gc'" do
@@ -105,7 +105,7 @@ describe GitGarbageCollectWorker do
       author: Gitlab::Git.committer_hash(email: 'foo@bar', name: 'baz'),
       committer: Gitlab::Git.committer_hash(email: 'foo@bar', name: 'baz'),
       tree: old_commit.tree,
-      parents: [old_commit],
+      parents: [old_commit]
     )
     GitOperationService.new(nil, project.repository).send(
       :update_ref,

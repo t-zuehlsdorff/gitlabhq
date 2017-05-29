@@ -66,15 +66,22 @@ describe Gitlab::Database::MigrationHelpers, lib: true do
 
       context 'using PostgreSQL' do
         before do
-          allow(Gitlab::Database).to receive(:postgresql?).and_return(true)
+          allow(model).to receive(:supports_drop_index_concurrently?).and_return(true)
           allow(model).to receive(:disable_statement_timeout)
         end
 
-        it 'removes the index concurrently' do
+        it 'removes the index concurrently by column name' do
           expect(model).to receive(:remove_index).
             with(:users, { algorithm: :concurrently, column: :foo })
 
           model.remove_concurrent_index(:users, :foo)
+        end
+
+        it 'removes the index concurrently by index name' do
+          expect(model).to receive(:remove_index).
+            with(:users, { algorithm: :concurrently, name: "index_x_by_y" })
+
+          model.remove_concurrent_index_by_name(:users, "index_x_by_y")
         end
       end
 
@@ -247,6 +254,14 @@ describe Gitlab::Database::MigrationHelpers, lib: true do
         expect(Project.where(archived: true).count).to eq(1)
       end
     end
+
+    context 'when the value is Arel.sql (Arel::Nodes::SqlLiteral)' do
+      it 'updates the value as a SQL expression' do
+        model.update_column_in_batches(:projects, :star_count, Arel.sql('1+1'))
+
+        expect(Project.sum(:star_count)).to eq(2 * Project.count)
+      end
+    end
   end
 
   describe '#add_column_with_default' do
@@ -382,12 +397,15 @@ describe Gitlab::Database::MigrationHelpers, lib: true do
           expect(model).to receive(:add_column).
             with(:users, :new, :integer,
                  limit: old_column.limit,
-                 default: old_column.default,
-                 null: old_column.null,
                  precision: old_column.precision,
                  scale: old_column.scale)
 
+          expect(model).to receive(:change_column_default).
+            with(:users, :new, old_column.default)
+
           expect(model).to receive(:update_column_in_batches)
+
+          expect(model).to receive(:change_column_null).with(:users, :new, false)
 
           expect(model).to receive(:copy_indexes).with(:users, :old, :new)
           expect(model).to receive(:copy_foreign_keys).with(:users, :old, :new)
@@ -406,12 +424,15 @@ describe Gitlab::Database::MigrationHelpers, lib: true do
           expect(model).to receive(:add_column).
             with(:users, :new, :integer,
                  limit: old_column.limit,
-                 default: old_column.default,
-                 null: old_column.null,
                  precision: old_column.precision,
                  scale: old_column.scale)
 
+          expect(model).to receive(:change_column_default).
+            with(:users, :new, old_column.default)
+
           expect(model).to receive(:update_column_in_batches)
+
+          expect(model).to receive(:change_column_null).with(:users, :new, false)
 
           expect(model).to receive(:copy_indexes).with(:users, :old, :new)
           expect(model).to receive(:copy_foreign_keys).with(:users, :old, :new)
@@ -724,6 +745,39 @@ describe Gitlab::Database::MigrationHelpers, lib: true do
 
     it 'returns nil when a column does not exist' do
       expect(model.column_for(:users, :kittens)).to be_nil
+    end
+  end
+
+  describe '#replace_sql' do
+    context 'using postgres' do
+      before do
+        allow(Gitlab::Database).to receive(:mysql?).and_return(false)
+      end
+
+      it 'builds the sql with correct functions' do
+        expect(model.replace_sql(Arel::Table.new(:users)[:first_name], "Alice", "Eve").to_s).
+          to include('regexp_replace')
+      end
+    end
+
+    context 'using mysql' do
+      before do
+        allow(Gitlab::Database).to receive(:mysql?).and_return(true)
+      end
+
+      it 'builds the sql with the correct functions' do
+        expect(model.replace_sql(Arel::Table.new(:users)[:first_name], "Alice", "Eve").to_s).
+          to include('locate', 'insert')
+      end
+    end
+
+    describe 'results' do
+      let!(:user) { create(:user, name: 'Kathy Alice Aliceson') }
+
+      it 'replaces the correct part of the string' do
+        model.update_column_in_batches(:users, :name, model.replace_sql(Arel::Table.new(:users)[:name], 'Alice', 'Eve'))
+        expect(user.reload.name).to eq('Kathy Eve Aliceson')
+      end
     end
   end
 end

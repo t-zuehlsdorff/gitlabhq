@@ -5,6 +5,7 @@ class User < ActiveRecord::Base
 
   include Gitlab::ConfigHelper
   include Gitlab::CurrentSettings
+  include Avatarable
   include Referable
   include Sortable
   include CaseSensitivity
@@ -14,6 +15,7 @@ class User < ActiveRecord::Base
 
   add_authentication_token_field :authentication_token
   add_authentication_token_field :incoming_email_token
+  add_authentication_token_field :rss_token
 
   default_value_for :admin, false
   default_value_for(:external) { current_application_settings.user_default_external }
@@ -23,6 +25,7 @@ class User < ActiveRecord::Base
   default_value_for :hide_no_password, false
   default_value_for :project_view, :files
   default_value_for :notified_of_own_activity, false
+  default_value_for :preferred_language, I18n.default_locale
 
   attr_encrypted :otp_secret,
     key:       Gitlab::Application.secrets.otp_key_base,
@@ -38,6 +41,17 @@ class User < ActiveRecord::Base
 
   devise :lockable, :recoverable, :rememberable, :trackable,
     :validatable, :omniauthable, :confirmable, :registerable
+
+  # Override Devise::Models::Trackable#update_tracked_fields!
+  # to limit database writes to at most once every hour
+  def update_tracked_fields!(request)
+    update_tracked_fields(request)
+
+    lease = Gitlab::ExclusiveLease.new("user_update_tracked_fields:#{id}", timeout: 1.hour.to_i)
+    return unless lease.try_obtain
+
+    save(validate: false)
+  end
 
   attr_accessor :force_random_password
 
@@ -99,6 +113,10 @@ class User < ActiveRecord::Base
   has_many :award_emoji,              dependent: :destroy
   has_many :triggers,                 dependent: :destroy, class_name: 'Ci::Trigger', foreign_key: :owner_id
 
+  has_many :issue_assignees
+  has_many :assigned_issues, class_name: "Issue", through: :issue_assignees, source: :issue
+  has_many :assigned_merge_requests,  dependent: :nullify, foreign_key: :assignee_id, class_name: "MergeRequest"
+
   # Issues that a user owns are expected to be moved to the "ghost" user before
   # the user is destroyed. If the user owns any issues during deletion, this
   # should be treated as an exceptional condition.
@@ -118,7 +136,7 @@ class User < ActiveRecord::Base
     presence: true,
     numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: Gitlab::Database::MAX_INT_VALUE }
   validates :username,
-    namespace: true,
+    dynamic_path: true,
     presence: true,
     uniqueness: { case_sensitive: false }
 
@@ -149,8 +167,13 @@ class User < ActiveRecord::Base
   enum dashboard: [:projects, :stars, :project_activity, :starred_project_activity, :groups, :todos]
 
   # User's Project preference
-  # Note: When adding an option, it MUST go on the end of the array.
-  enum project_view: [:readme, :activity, :files]
+  #
+  # Note: When adding an option, it MUST go on the end of the hash with a
+  # number higher than the current max. We cannot move options and/or change
+  # their numbers.
+  #
+  # We skip 0 because this was used by an option that has since been removed.
+  enum project_view: { activity: 1, files: 2 }
 
   alias_attribute :private_token, :authentication_token
 
@@ -332,6 +355,11 @@ class User < ActiveRecord::Base
       find_by(id: Key.unscoped.select(:user_id).where(id: key_id))
     end
 
+    def find_by_full_path(path, follow_redirects: false)
+      namespace = Namespace.for_user.find_by_full_path(path, follow_redirects: follow_redirects)
+      namespace&.owner
+    end
+
     def reference_prefix
       '@'
     end
@@ -340,7 +368,7 @@ class User < ActiveRecord::Base
     def reference_pattern
       %r{
         #{Regexp.escape(reference_prefix)}
-        (?<user>#{Gitlab::Regex::FULL_NAMESPACE_REGEX_STR})
+        (?<user>#{Gitlab::PathRegex::FULL_NAMESPACE_FORMAT_REGEX})
       }x
     end
 
@@ -352,6 +380,10 @@ class User < ActiveRecord::Base
         u.name = 'Ghost User'
       end
     end
+  end
+
+  def full_path
+    username
   end
 
   def self.internal_attributes
@@ -759,12 +791,10 @@ class User < ActiveRecord::Base
     email.start_with?('temp-email-for-oauth')
   end
 
-  def avatar_url(size = nil, scale = 2)
-    if self[:avatar].present?
-      [gitlab_config.url, avatar.url].join
-    else
-      GravatarService.new.execute(email, size, scale)
-    end
+  def avatar_url(size: nil, scale: 2, **args)
+    # We use avatar_path instead of overriding avatar_url because of carrierwave.
+    # See https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/11001/diffs#note_28659864
+    avatar_path(args) || GravatarService.new.execute(email, size, scale)
   end
 
   def all_emails
@@ -889,13 +919,13 @@ class User < ActiveRecord::Base
   end
 
   def assigned_open_merge_requests_count(force: false)
-    Rails.cache.fetch(['users', id, 'assigned_open_merge_requests_count'], force: force) do
+    Rails.cache.fetch(['users', id, 'assigned_open_merge_requests_count'], force: force, expires_in: 20.minutes) do
       MergeRequestsFinder.new(self, assignee_id: self.id, state: 'opened').execute.count
     end
   end
 
   def assigned_open_issues_count(force: false)
-    Rails.cache.fetch(['users', id, 'assigned_open_issues_count'], force: force) do
+    Rails.cache.fetch(['users', id, 'assigned_open_issues_count'], force: force, expires_in: 20.minutes) do
       IssuesFinder.new(self, assignee_id: self.id, state: 'opened').execute.count
     end
   end
@@ -903,6 +933,19 @@ class User < ActiveRecord::Base
   def update_cache_counts
     assigned_open_merge_requests_count(force: true)
     assigned_open_issues_count(force: true)
+  end
+
+  def invalidate_cache_counts
+    invalidate_issue_cache_counts
+    invalidate_merge_request_cache_counts
+  end
+
+  def invalidate_issue_cache_counts
+    Rails.cache.delete(['users', id, 'assigned_open_issues_count'])
+  end
+
+  def invalidate_merge_request_cache_counts
+    Rails.cache.delete(['users', id, 'assigned_open_merge_requests_count'])
   end
 
   def todos_done_count(force: false)
@@ -962,6 +1005,13 @@ class User < ActiveRecord::Base
     save
   end
 
+  # each existing user needs to have an `rss_token`.
+  # we do this on read since migrating all existing users is not a feasible
+  # solution.
+  def rss_token
+    ensure_rss_token!
+  end
+
   protected
 
   # override, from Devise::Validatable
@@ -984,6 +1034,15 @@ class User < ActiveRecord::Base
   # Added according to https://github.com/plataformatec/devise/blob/7df57d5081f9884849ca15e4fde179ef164a575f/README.md#activejob-integration
   def send_devise_notification(notification, *args)
     devise_mailer.send(notification, self, *args).deliver_later
+  end
+
+  # This works around a bug in Devise 4.2.0 that erroneously causes a user to
+  # be considered active in MySQL specs due to a sub-second comparison
+  # issue. For more details, see: https://gitlab.com/gitlab-org/gitlab-ee/issues/2362#note_29004709
+  def confirmation_period_valid?
+    return false if self.class.allow_unconfirmed_access_for == 0.days
+
+    super
   end
 
   def ensure_external_user_rights

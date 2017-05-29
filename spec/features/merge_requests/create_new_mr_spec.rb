@@ -1,8 +1,6 @@
 require 'spec_helper'
 
 feature 'Create New Merge Request', feature: true, js: true do
-  include WaitForVueResource
-
   let(:user) { create(:user) }
   let(:project) { create(:project, :public) }
 
@@ -34,7 +32,7 @@ feature 'Create New Merge Request', feature: true, js: true do
     expect(page).to have_content('Target branch')
 
     first('.js-target-branch').click
-    first('.dropdown-target-branch .dropdown-content a', text: 'v1.1.0').click
+    find('.dropdown-target-branch .dropdown-content a', text: 'v1.1.0', match: :first).click
 
     expect(page).to have_content "b83d6e3"
   end
@@ -146,7 +144,7 @@ feature 'Create New Merge Request', feature: true, js: true do
 
       page.within('.merge-request') do
         click_link 'Pipelines'
-        wait_for_vue_resource
+        wait_for_requests
 
         expect(page).to have_content "##{pipeline.id}"
       end

@@ -6,6 +6,7 @@ class Project < ActiveRecord::Base
   include Gitlab::VisibilityLevel
   include Gitlab::CurrentSettings
   include AccessRequestable
+  include Avatarable
   include CacheMarkdownField
   include Referable
   include Sortable
@@ -51,6 +52,11 @@ class Project < ActiveRecord::Base
   after_create :set_last_activity_at
   def set_last_activity_at
     update_column(:last_activity_at, self.created_at)
+  end
+
+  after_create :set_last_repository_updated_at
+  def set_last_repository_updated_at
+    update_column(:last_repository_updated_at, self.created_at)
   end
 
   after_destroy :remove_pages
@@ -169,10 +175,11 @@ class Project < ActiveRecord::Base
   has_many :builds, class_name: 'Ci::Build' # the builds are created from the commit_statuses
   has_many :runner_projects, dependent: :destroy, class_name: 'Ci::RunnerProject'
   has_many :runners, through: :runner_projects, source: :runner, class_name: 'Ci::Runner'
-  has_many :variables, dependent: :destroy, class_name: 'Ci::Variable'
+  has_many :variables, class_name: 'Ci::Variable'
   has_many :triggers, dependent: :destroy, class_name: 'Ci::Trigger'
   has_many :environments, dependent: :destroy
   has_many :deployments, dependent: :destroy
+  has_many :pipeline_schedules, dependent: :destroy, class_name: 'Ci::PipelineSchedule'
 
   has_many :active_runners, -> { active }, through: :runner_projects, source: :runner, class_name: 'Ci::Runner'
 
@@ -196,13 +203,14 @@ class Project < ActiveRecord::Base
               message: Gitlab::Regex.project_name_regex_message }
   validates :path,
     presence: true,
-    project_path: true,
+    dynamic_path: true,
     length: { maximum: 255 },
-    format: { with: Gitlab::Regex.project_path_regex,
-              message: Gitlab::Regex.project_path_regex_message }
+    format: { with: Gitlab::PathRegex.project_path_format_regex,
+              message: Gitlab::PathRegex.project_path_format_message },
+    uniqueness: { scope: :namespace_id }
+
   validates :namespace, presence: true
   validates :name, uniqueness: { scope: :namespace_id }
-  validates :path, uniqueness: { scope: :namespace_id }
   validates :import_url, addressable_url: true, if: :external_import?
   validates :import_url, importable_url: true, if: [:external_import?, :import_url_changed?]
   validates :star_count, numericality: { greater_than_or_equal_to: 0 }
@@ -372,11 +380,9 @@ class Project < ActiveRecord::Base
     end
 
     def reference_pattern
-      name_pattern = Gitlab::Regex::FULL_NAMESPACE_REGEX_STR
-
       %r{
-        ((?<namespace>#{name_pattern})\/)?
-        (?<project>#{name_pattern})
+        ((?<namespace>#{Gitlab::PathRegex::FULL_NAMESPACE_FORMAT_REGEX})\/)?
+        (?<project>#{Gitlab::PathRegex::PROJECT_PATH_FORMAT_REGEX})
       }x
     end
 
@@ -791,12 +797,10 @@ class Project < ActiveRecord::Base
     repository.avatar
   end
 
-  def avatar_url
-    if self[:avatar].present?
-      [gitlab_config.url, avatar.url].join
-    elsif avatar_in_git
-      Gitlab::Routing.url_helpers.namespace_project_avatar_url(namespace, self)
-    end
+  def avatar_url(**args)
+    # We use avatar_path instead of overriding avatar_url because of carrierwave.
+    # See https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/11001/diffs#note_28659864
+    avatar_path(args) || (Gitlab::Routing.url_helpers.namespace_project_avatar_url(namespace, self) if avatar_in_git)
   end
 
   # For compatibility with old code
@@ -961,7 +965,7 @@ class Project < ActiveRecord::Base
       namespace: namespace.name,
       visibility_level: visibility_level,
       path_with_namespace: path_with_namespace,
-      default_branch: default_branch,
+      default_branch: default_branch
     }
 
     # Backward compatibility
@@ -1270,6 +1274,9 @@ class Project < ActiveRecord::Base
     else
       update_attribute(name, value)
     end
+
+  rescue ActiveRecord::RecordNotSaved => e
+    handle_update_attribute_error(e, value)
   end
 
   def pushes_since_gc
@@ -1312,6 +1319,14 @@ class Project < ActiveRecord::Base
 
   def parent_changed?
     namespace_id_changed?
+  end
+
+  def default_merge_request_target
+    if forked_from_project&.merge_requests_enabled?
+      forked_from_project
+    else
+      self
+    end
   end
 
   alias_method :name_with_namespace, :full_name
@@ -1382,5 +1397,17 @@ class Project < ActiveRecord::Base
     return false unless Gitlab.config.registry.enabled
 
     ContainerRepository.build_root_repository(self).has_tags?
+  end
+
+  def handle_update_attribute_error(ex, value)
+    if ex.message.start_with?('Failed to replace')
+      if value.respond_to?(:each)
+        invalid = value.detect(&:invalid?)
+
+        raise ex, ([ex.message] + invalid.errors.full_messages).join(' ') if invalid
+      end
+    end
+
+    raise ex
   end
 end

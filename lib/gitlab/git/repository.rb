@@ -27,13 +27,15 @@ module Gitlab
       # Rugged repo object
       attr_reader :rugged
 
+      attr_reader :storage
+
       # 'path' must be the path to a _bare_ git repository, e.g.
       # /path/to/my-repo.git
-      def initialize(repository_storage, relative_path)
-        @repository_storage = repository_storage
+      def initialize(storage, relative_path)
+        @storage = storage
         @relative_path = relative_path
 
-        storage_path = Gitlab.config.repositories.storages[@repository_storage]['path']
+        storage_path = Gitlab.config.repositories.storages[@storage]['path']
         @path = File.join(storage_path, @relative_path)
         @name = @relative_path.split("/").last
         @attributes = Gitlab::Git::Attributes.new(path)
@@ -45,17 +47,13 @@ module Gitlab
 
       # Default branch in the repository
       def root_ref
-        # NOTE: This feature is intentionally disabled until
-        # https://gitlab.com/gitlab-org/gitaly/issues/179 is resolved
-        # @root_ref ||= Gitlab::GitalyClient.migrate(:root_ref) do |is_enabled|
-        #   if is_enabled
-        #     gitaly_ref_client.default_branch_name
-        #   else
-        @root_ref ||= discover_default_branch
-        #   end
-        # end
-      rescue GRPC::BadStatus => e
-        raise CommandError.new(e)
+        @root_ref ||= gitaly_migrate(:root_ref) do |is_enabled|
+          if is_enabled
+            gitaly_ref_client.default_branch_name
+          else
+            discover_default_branch
+          end
+        end
       end
 
       # Alias to old method for compatibility
@@ -72,28 +70,26 @@ module Gitlab
       # Returns an Array of branch names
       # sorted by name ASC
       def branch_names
-        # Gitlab::GitalyClient.migrate(:branch_names) do |is_enabled|
-        #   NOTE: This feature is intentionally disabled until
-        #   https://gitlab.com/gitlab-org/gitaly/issues/179 is resolved
-        #   if is_enabled
-        #     gitaly_ref_client.branch_names
-        #   else
-        branches.map(&:name)
-        #   end
-        # end
-      rescue GRPC::BadStatus => e
-        raise CommandError.new(e)
+        gitaly_migrate(:branch_names) do |is_enabled|
+          if is_enabled
+            gitaly_ref_client.branch_names
+          else
+            branches.map(&:name)
+          end
+        end
       end
 
       # Returns an Array of Branches
-      def branches
-        rugged.branches.map do |rugged_ref|
+      def branches(filter: nil, sort_by: nil)
+        branches = rugged.branches.each(filter).map do |rugged_ref|
           begin
             Gitlab::Git::Branch.new(self, rugged_ref.name, rugged_ref.target)
           rescue Rugged::ReferenceError
             # Omit invalid branch
           end
-        end.compact.sort_by(&:name)
+        end.compact
+
+        sort_branches(branches, sort_by)
       end
 
       def reload_rugged
@@ -114,38 +110,57 @@ module Gitlab
         Gitlab::Git::Branch.new(self, rugged_ref.name, rugged_ref.target) if rugged_ref
       end
 
-      def local_branches
-        rugged.branches.each(:local).map do |branch|
-          Gitlab::Git::Branch.new(self, branch.name, branch.target)
+      def local_branches(sort_by: nil)
+        gitaly_migrate(:local_branches) do |is_enabled|
+          if is_enabled
+            gitaly_ref_client.local_branches(sort_by: sort_by).map do |gitaly_branch|
+              Gitlab::Git::Branch.new(self, gitaly_branch.name, gitaly_branch)
+            end
+          else
+            branches(filter: :local, sort_by: sort_by)
+          end
         end
       end
 
       # Returns the number of valid branches
       def branch_count
-        rugged.branches.count do |ref|
-          begin
-            ref.name && ref.target # ensures the branch is valid
+        gitaly_migrate(:branch_names) do |is_enabled|
+          if is_enabled
+            gitaly_ref_client.count_branch_names
+          else
+            rugged.branches.count do |ref|
+              begin
+                ref.name && ref.target # ensures the branch is valid
 
-            true
-          rescue Rugged::ReferenceError
-            false
+                true
+              rescue Rugged::ReferenceError
+                false
+              end
+            end
+          end
+        end
+      end
+
+      # Returns the number of valid tags
+      def tag_count
+        gitaly_migrate(:tag_names) do |is_enabled|
+          if is_enabled
+            gitaly_ref_client.count_tag_names
+          else
+            rugged.tags.count
           end
         end
       end
 
       # Returns an Array of tag names
       def tag_names
-        # Gitlab::GitalyClient.migrate(:tag_names) do |is_enabled|
-        #   NOTE: This feature is intentionally disabled until
-        #   https://gitlab.com/gitlab-org/gitaly/issues/179 is resolved
-        #   if is_enabled
-        #     gitaly_ref_client.tag_names
-        #   else
-        rugged.tags.map { |t| t.name }
-        #   end
-        # end
-      rescue GRPC::BadStatus => e
-        raise CommandError.new(e)
+        gitaly_migrate(:tag_names) do |is_enabled|
+          if is_enabled
+            gitaly_ref_client.tag_names
+          else
+            rugged.tags.map { |t| t.name }
+          end
+        end
       end
 
       # Returns an Array of Tags
@@ -253,7 +268,7 @@ module Gitlab
           'RepoPath' => path,
           'ArchivePrefix' => prefix,
           'ArchivePath' => archive_file_path(prefix, storage_path, format),
-          'CommitId' => commit.id,
+          'CommitId' => commit.id
         }
       end
 
@@ -451,7 +466,7 @@ module Gitlab
 
       # Returns true is +from+ is direct ancestor to +to+, otherwise false
       def is_ancestor?(from, to)
-        Gitlab::GitalyClient::Commit.is_ancestor(self, from, to)
+        gitaly_commit_client.is_ancestor(from, to)
       end
 
       # Return an array of Diff objects that represent the diff
@@ -464,19 +479,19 @@ module Gitlab
 
       # Returns a RefName for a given SHA
       def ref_name_for_sha(ref_path, sha)
-        # NOTE: This feature is intentionally disabled until
-        # https://gitlab.com/gitlab-org/gitaly/issues/180 is resolved
-        # Gitlab::GitalyClient.migrate(:find_ref_name) do |is_enabled|
-        #   if is_enabled
-        #     gitaly_ref_client.find_ref_name(sha, ref_path)
-        #   else
-        args = %W(#{Gitlab.config.git.bin_path} for-each-ref --count=1 #{ref_path} --contains #{sha})
+        raise ArgumentError, "sha can't be empty" unless sha.present?
 
-        # Not found -> ["", 0]
-        # Found -> ["b8d95eb4969eefacb0a58f6a28f6803f8070e7b9 commit\trefs/environments/production/77\n", 0]
-        Gitlab::Popen.popen(args, @path).first.split.last
-        #   end
-        # end
+        gitaly_migrate(:find_ref_name) do |is_enabled|
+          if is_enabled
+            gitaly_ref_client.find_ref_name(sha, ref_path)
+          else
+            args = %W(#{Gitlab.config.git.bin_path} for-each-ref --count=1 #{ref_path} --contains #{sha})
+
+            # Not found -> ["", 0]
+            # Found -> ["b8d95eb4969eefacb0a58f6a28f6803f8070e7b9 commit\trefs/environments/production/77\n", 0]
+            Gitlab::Popen.popen(args, @path).first.split.last
+          end
+        end
       end
 
       # Returns commits collection
@@ -494,8 +509,9 @@ module Gitlab
       #     :contains is the commit contained by the refs from which to begin (SHA1 or name)
       #     :max_count is the maximum number of commits to fetch
       #     :skip is the number of commits to skip
-      #     :order is the commits order and allowed value is :none (default), :date, or :topo
-      #        commit ordering types are documented here:
+      #     :order is the commits order and allowed value is :none (default), :date,
+      #        :topo, or any combination of them (in an array). Commit ordering types
+      #        are documented here:
       #        http://www.rubydoc.info/github/libgit2/rugged/Rugged#SORT_NONE-constant)
       #
       def find_commits(options = {})
@@ -871,27 +887,6 @@ module Gitlab
         rugged.remotes[remote_name].push(refspecs)
       end
 
-      # Merge the +source_name+ branch into the +target_name+ branch. This is
-      # equivalent to `git merge --no_ff +source_name+`, since a merge commit
-      # is always created.
-      def merge(source_name, target_name, options = {})
-        our_commit = rugged.branches[target_name].target
-        their_commit = rugged.branches[source_name].target
-
-        raise "Invalid merge target" if our_commit.nil?
-        raise "Invalid merge source" if their_commit.nil?
-
-        merge_index = rugged.merge_commits(our_commit, their_commit)
-        return false if merge_index.conflicts?
-
-        actual_options = options.merge(
-          parents: [our_commit, their_commit],
-          tree: merge_index.write_tree(rugged),
-          update_ref: "refs/heads/#{target_name}"
-        )
-        Rugged::Commit.create(rugged, actual_options)
-      end
-
       AUTOCRLF_VALUES = {
         "true" => true,
         "false" => false,
@@ -980,11 +975,7 @@ module Gitlab
       end
 
       def gitaly_repository
-        Gitlab::GitalyClient::Util.repository(@repository_storage, @relative_path)
-      end
-
-      def gitaly_channel
-        Gitlab::GitalyClient.get_channel(@repository_storage)
+        Gitlab::GitalyClient::Util.repository(@storage, @relative_path)
       end
 
       private
@@ -1127,56 +1118,6 @@ module Gitlab
         end
       end
 
-      def archive_to_file(treeish = 'master', filename = 'archive.tar.gz', format = nil, compress_cmd = %w(gzip -n))
-        git_archive_cmd = %W(#{Gitlab.config.git.bin_path} --git-dir=#{path} archive)
-
-        # Put files into a directory before archiving
-        prefix = "#{archive_name(treeish)}/"
-        git_archive_cmd << "--prefix=#{prefix}"
-
-        # Format defaults to tar
-        git_archive_cmd << "--format=#{format}" if format
-
-        git_archive_cmd += %W(-- #{treeish})
-
-        open(filename, 'w') do |file|
-          # Create a pipe to act as the '|' in 'git archive ... | gzip'
-          pipe_rd, pipe_wr = IO.pipe
-
-          # Get the compression process ready to accept data from the read end
-          # of the pipe
-          compress_pid = spawn(*nice(compress_cmd), in: pipe_rd, out: file)
-          # The read end belongs to the compression process now; we should
-          # close our file descriptor for it.
-          pipe_rd.close
-
-          # Start 'git archive' and tell it to write into the write end of the
-          # pipe.
-          git_archive_pid = spawn(*nice(git_archive_cmd), out: pipe_wr)
-          # The write end belongs to 'git archive' now; close it.
-          pipe_wr.close
-
-          # When 'git archive' and the compression process are finished, we are
-          # done.
-          Process.waitpid(git_archive_pid)
-          raise "#{git_archive_cmd.join(' ')} failed" unless $?.success?
-          Process.waitpid(compress_pid)
-          raise "#{compress_cmd.join(' ')} failed" unless $?.success?
-        end
-      end
-
-      def nice(cmd)
-        nice_cmd = %w(nice -n 20)
-        unless unsupported_platform?
-          nice_cmd += %w(ionice -c 2 -n 7)
-        end
-        nice_cmd + cmd
-      end
-
-      def unsupported_platform?
-        %w[darwin freebsd solaris].map { |platform| RUBY_PLATFORM.include?(platform) }.any?
-      end
-
       # Returns true if the index entry has the special file mode that denotes
       # a submodule.
       def submodule?(index_entry)
@@ -1269,20 +1210,51 @@ module Gitlab
         diff.each_patch
       end
 
+      def sort_branches(branches, sort_by)
+        case sort_by
+        when 'name'
+          branches.sort_by(&:name)
+        when 'updated_desc'
+          branches.sort do |a, b|
+            b.dereferenced_target.committed_date <=> a.dereferenced_target.committed_date
+          end
+        when 'updated_asc'
+          branches.sort do |a, b|
+            a.dereferenced_target.committed_date <=> b.dereferenced_target.committed_date
+          end
+        else
+          branches
+        end
+      end
+
       def gitaly_ref_client
         @gitaly_ref_client ||= Gitlab::GitalyClient::Ref.new(self)
       end
 
-      # Returns the `Rugged` sorting type constant for a given
-      # sort type key. Valid keys are `:none`, `:topo`, and `:date`
-      def rugged_sort_type(key)
+      def gitaly_commit_client
+        @gitaly_commit_client ||= Gitlab::GitalyClient::Commit.new(self)
+      end
+
+      def gitaly_migrate(method, &block)
+        Gitlab::GitalyClient.migrate(method, &block)
+      rescue GRPC::NotFound => e
+        raise NoRepository.new(e)
+      rescue GRPC::BadStatus => e
+        raise CommandError.new(e)
+      end
+
+      # Returns the `Rugged` sorting type constant for one or more given
+      # sort types. Valid keys are `:none`, `:topo`, and `:date`, or an array
+      # containing more than one of them. `:date` uses a combination of date and
+      # topological sorting to closer mimic git's native ordering.
+      def rugged_sort_type(sort_type)
         @rugged_sort_types ||= {
           none: Rugged::SORT_NONE,
           topo: Rugged::SORT_TOPO,
-          date: Rugged::SORT_DATE
+          date: Rugged::SORT_DATE | Rugged::SORT_TOPO
         }
 
-        @rugged_sort_types.fetch(key, Rugged::SORT_NONE)
+        @rugged_sort_types.fetch(sort_type, Rugged::SORT_NONE)
       end
     end
   end

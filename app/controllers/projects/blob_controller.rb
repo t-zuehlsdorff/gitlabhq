@@ -35,12 +35,14 @@ class Projects::BlobController < Projects::ApplicationController
   end
 
   def show
-    @blob.override_max_size! if params[:override_max_size] == 'true'
+    override_max_blob_size(@blob)
 
     respond_to do |format|
       format.html do
         environment_params = @repository.branch_exists?(@ref) ? { ref: @ref } : { commit: @commit }
         @environment = EnvironmentsFinder.new(@project, current_user, environment_params).execute.last
+
+        @last_commit = @repository.last_commit_for_path(@commit.id, @blob.path)
 
         render 'show'
       end

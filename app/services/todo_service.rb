@@ -251,9 +251,9 @@ class TodoService
   end
 
   def create_assignment_todo(issuable, author)
-    if issuable.assignee
+    if issuable.assignees.any?
       attributes = attributes_for_todo(issuable.project, issuable, author, Todo::ASSIGNED)
-      create_todos(issuable.assignee, attributes)
+      create_todos(issuable.assignees, attributes)
     end
   end
 
@@ -281,7 +281,7 @@ class TodoService
 
   def attributes_for_target(target)
     attributes = {
-      project_id: target.project.id,
+      project_id: target&.project&.id,
       target_id: target.id,
       target_type: target.class.name,
       commit_id: nil

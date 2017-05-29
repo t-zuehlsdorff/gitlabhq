@@ -73,6 +73,7 @@ describe Project, models: true do
     it { is_expected.to have_many(:notification_settings).dependent(:destroy) }
     it { is_expected.to have_many(:forks).through(:forked_project_links) }
     it { is_expected.to have_many(:uploads).dependent(:destroy) }
+    it { is_expected.to have_many(:pipeline_schedules).dependent(:destroy) }
 
     context 'after initialized' do
       it "has a project_feature" do
@@ -251,6 +252,34 @@ describe Project, models: true do
 
       it 'contains errors related to the project being deleted' do
         expect(new_project.errors.full_messages.first).to eq('The project is still being deleted. Please try again later.')
+      end
+    end
+
+    describe 'path validation' do
+      it 'allows paths reserved on the root namespace' do
+        project = build(:project, path: 'api')
+
+        expect(project).to be_valid
+      end
+
+      it 'rejects paths reserved on another level' do
+        project = build(:project, path: 'tree')
+
+        expect(project).not_to be_valid
+      end
+
+      it 'rejects nested paths' do
+        parent = create(:group, :nested, path: 'environments')
+        project = build(:project, path: 'folders', namespace: parent)
+
+        expect(project).not_to be_valid
+      end
+
+      it 'allows a reserved group name' do
+        parent = create(:group)
+        project = build(:project, path: 'avatar', namespace: parent)
+
+        expect(project).to be_valid
       end
     end
   end
@@ -781,17 +810,19 @@ describe Project, models: true do
 
     let(:project) { create(:empty_project) }
 
-    context 'When avatar file is uploaded' do
-      before do
-        project.update_columns(avatar: 'uploads/avatar.png')
-        allow(project.avatar).to receive(:present?) { true }
-      end
+    context 'when avatar file is uploaded' do
+      let(:project) { create(:empty_project, :with_avatar) }
+      let(:avatar_path) { "/uploads/project/avatar/#{project.id}/dk.png" }
+      let(:gitlab_host) { "http://#{Gitlab.config.gitlab.host}" }
 
-      let(:avatar_path) do
-        "/uploads/project/avatar/#{project.id}/uploads/avatar.png"
-      end
+      it 'shows correct url' do
+        expect(project.avatar_url).to eq(avatar_path)
+        expect(project.avatar_url(only_path: false)).to eq([gitlab_host, avatar_path].join)
 
-      it { should eq "http://#{Gitlab.config.gitlab.host}#{avatar_path}" }
+        allow(ActionController::Base).to receive(:asset_host).and_return(gitlab_host)
+
+        expect(project.avatar_url).to eq([gitlab_host, avatar_path].join)
+      end
     end
 
     context 'When avatar file in git' do
@@ -799,9 +830,7 @@ describe Project, models: true do
         allow(project).to receive(:avatar_in_git) { true }
       end
 
-      let(:avatar_path) do
-        "/#{project.full_path}/avatar"
-      end
+      let(:avatar_path) { "/#{project.full_path}/avatar" }
 
       it { should eq "http://#{Gitlab.config.gitlab.host}#{avatar_path}" }
     end
@@ -944,7 +973,7 @@ describe Project, models: true do
     before do
       storages = {
         'default' => { 'path' => 'tmp/tests/repositories' },
-        'picked'  => { 'path' => 'tmp/tests/repositories' },
+        'picked'  => { 'path' => 'tmp/tests/repositories' }
       }
       allow(Gitlab.config.repositories).to receive(:storages).and_return(storages)
     end
@@ -1399,6 +1428,31 @@ describe Project, models: true do
         expect(project).to receive(:container_repositories)
         expect(project).not_to have_container_registry_tags
       end
+    end
+  end
+
+  describe 'Project import job' do
+    let(:project) { create(:empty_project) }
+    let(:mirror) { false }
+
+    before do
+      allow_any_instance_of(Gitlab::Shell).to receive(:import_repository)
+        .with(project.repository_storage_path, project.path_with_namespace, project.import_url)
+        .and_return(true)
+
+      allow(project).to receive(:repository_exists?).and_return(true)
+
+      expect_any_instance_of(Repository).to receive(:after_import)
+        .and_call_original
+    end
+
+    it 'imports a project' do
+      expect_any_instance_of(RepositoryImportWorker).to receive(:perform).and_call_original
+
+      project.import_start
+      project.add_import_job
+
+      expect(project.reload.import_status).to eq('finished')
     end
   end
 
@@ -1879,6 +1933,33 @@ describe Project, models: true do
 
     it 'hase a loaded pipeline status' do
       expect(project.pipeline_status).to be_loaded
+    end
+  end
+
+  describe '#append_or_update_attribute' do
+    let(:project) { create(:project) }
+
+    it 'shows full error updating an invalid MR' do
+      error_message = 'Failed to replace merge_requests because one or more of the new records could not be saved.'\
+                      ' Validate fork Source project is not a fork of the target project'
+
+      expect { project.append_or_update_attribute(:merge_requests, [create(:merge_request)]) }.
+        to raise_error(ActiveRecord::RecordNotSaved, error_message)
+    end
+
+    it 'updates the project succesfully' do
+      merge_request = create(:merge_request, target_project: project, source_project: project)
+
+      expect { project.append_or_update_attribute(:merge_requests, [merge_request]) }.
+        not_to raise_error
+    end
+  end
+
+  describe '#last_repository_updated_at' do
+    it 'sets to created_at upon creation' do
+      project = create(:empty_project, created_at: 2.hours.ago)
+
+      expect(project.last_repository_updated_at.to_i).to eq(project.created_at.to_i)
     end
   end
 end

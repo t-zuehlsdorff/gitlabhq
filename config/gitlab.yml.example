@@ -181,8 +181,8 @@ production: &base
     stuck_ci_jobs_worker:
       cron: "0 * * * *"
     # Execute scheduled triggers
-    trigger_schedule_worker:
-      cron: "0 */12 * * *"
+    pipeline_schedule_worker:
+      cron: "19 * * * *"
     # Remove expired build artifacts
     expire_build_artifacts_worker:
       cron: "50 * * * *"
@@ -501,6 +501,9 @@ production: &base
     # Git over HTTP
     upload_pack: true
     receive_pack: true
+
+    # Git import/fetch timeout
+    # git_timeout: 800
 
     # If you use non-standard ssh port you need to specify it
     # ssh_port: 22
