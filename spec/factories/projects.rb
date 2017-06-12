@@ -1,3 +1,5 @@
+require_relative '../support/test_env'
+
 FactoryGirl.define do
   # Project without repository
   #
@@ -22,6 +24,22 @@ FactoryGirl.define do
 
     trait :private do
       visibility_level Gitlab::VisibilityLevel::PRIVATE
+    end
+
+    trait :import_scheduled do
+      import_status :scheduled
+    end
+
+    trait :import_started do
+      import_status :started
+    end
+
+    trait :import_finished do
+      import_status :finished
+    end
+
+    trait :import_failed do
+      import_status :failed
     end
 
     trait :archived do
@@ -109,6 +127,18 @@ FactoryGirl.define do
           merge_requests_access_level: merge_requests_access_level,
           repository_access_level: evaluator.repository_access_level
         )
+
+      # Normally the class Projects::CreateService is used for creating
+      # projects, and this class takes care of making sure the owner and current
+      # user have access to the project. Our specs don't use said service class,
+      # thus we must manually refresh things here.
+      owner = project.owner
+
+      if owner && owner.is_a?(User) && !project.pending_delete
+        project.members.create!(user: owner, access_level: Gitlab::Access::MASTER)
+      end
+
+      project.group&.refresh_members_authorized_projects
     end
   end
 

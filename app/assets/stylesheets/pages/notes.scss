@@ -38,9 +38,12 @@ ul.notes {
   }
 
   .discussion {
-    overflow: hidden;
     display: block;
     position: relative;
+
+    .diff-content {
+      overflow: visible;
+    }
   }
 
   > li {
@@ -443,6 +446,53 @@ ul.notes {
   .note-action-button {
     margin-left: 8px;
   }
+
+  .more-actions-toggle {
+    margin-left: 2px;
+  }
+}
+
+.more-actions {
+  display: inline;
+
+  .tooltip {
+    white-space: nowrap;
+  }
+}
+
+.more-actions-toggle {
+  padding: 0;
+  outline: none;
+
+  &:hover .icon,
+  &:focus .icon {
+    color: $blue-600;
+  }
+
+  .icon {
+    padding: 0 6px;
+  }
+}
+
+.more-actions-dropdown {
+  width: 180px;
+  min-width: 180px;
+  margin-top: $gl-btn-padding;
+
+  li > a,
+  li > .btn {
+    color: $gl-text-color;
+    padding: $gl-btn-padding;
+    width: 100%;
+    text-align: left;
+
+    &:hover,
+    &:focus {
+      color: $gl-text-color;
+      background-color: $blue-25;
+      border-radius: $border-radius-default;
+    }
+  }
 }
 
 .discussion-actions {
@@ -550,13 +600,13 @@ ul.notes {
   position: relative;
   top: -2px;
   display: inline-block;
-  padding-left: 4px;
-  padding-right: 4px;
+  padding-left: 7px;
+  padding-right: 7px;
   color: $notes-role-color;
   font-size: 12px;
   line-height: 20px;
   border: 1px solid $border-color;
-  border-radius: $border-radius-base;
+  border-radius: $label-border-radius;
 }
 
 
