@@ -15,7 +15,7 @@ class CommitStatus < ActiveRecord::Base
 
   validates :pipeline, presence: true, unless: :importing?
 
-  validates :name, presence: true
+  validates :name, presence: true, unless: :importing?
 
   alias_attribute :author, :user
 
@@ -129,6 +129,11 @@ class CommitStatus < ActiveRecord::Base
 
   # To be overriden when inherrited from
   def retryable?
+    false
+  end
+
+  # To be overriden when inherrited from
+  def cancelable?
     false
   end
 
