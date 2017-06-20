@@ -603,6 +603,9 @@ module API
       expose :plantuml_url
       expose :terminal_max_session_time
       expose :polling_interval_multiplier
+      expose :help_page_hide_commercial_content
+      expose :help_page_text
+      expose :help_page_support_url
     end
 
     class Release < Grape::Entity
@@ -804,7 +807,11 @@ module API
       end
 
       class Image < Grape::Entity
-        expose :name
+        expose :name, :entrypoint
+      end
+
+      class Service < Image
+        expose :alias, :command
       end
 
       class Artifacts < Grape::Entity
@@ -848,7 +855,7 @@ module API
         expose :variables
         expose :steps, using: Step
         expose :image, using: Image
-        expose :services, using: Image
+        expose :services, using: Service
         expose :artifacts, using: Artifacts
         expose :cache, using: Cache
         expose :credentials, using: Credentials
