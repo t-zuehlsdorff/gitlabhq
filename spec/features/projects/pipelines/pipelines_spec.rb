@@ -7,7 +7,7 @@ describe 'Pipelines', :feature, :js do
     let(:user) { create(:user) }
 
     before do
-      login_as(user)
+      gitlab_sign_in(user)
       project.team << [user, :developer]
     end
 
@@ -178,7 +178,7 @@ describe 'Pipelines', :feature, :js do
         end
 
         it 'has a dropdown with play button' do
-          expect(page).to have_selector('.dropdown-toggle.btn.btn-default .icon-play')
+          expect(page).to have_selector('.dropdown-new.btn.btn-default .icon-play')
         end
 
         it 'has link to the manual action' do

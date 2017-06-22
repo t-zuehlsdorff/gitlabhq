@@ -11,10 +11,6 @@
         type: Array,
         required: true,
       },
-      service: {
-        type: Object,
-        required: true,
-      },
     },
     components: {
       loadingIcon,
@@ -31,17 +27,9 @@
 
         $(this.$refs.tooltip).tooltip('destroy');
 
-        this.service.postAction(endpoint)
-        .then(() => {
-          this.isLoading = false;
-          eventHub.$emit('refreshPipelines');
-        })
-        .catch(() => {
-          this.isLoading = false;
-          // eslint-disable-next-line no-new
-          new Flash('An error occured while making the request.');
-        });
+        eventHub.$emit('postAction', endpoint);
       },
+
       isActionDisabled(action) {
         if (action.playable === undefined) {
           return false;
@@ -56,7 +44,7 @@
   <div class="btn-group">
     <button
       type="button"
-      class="dropdown-toggle btn btn-default has-tooltip js-pipeline-dropdown-manual-actions"
+      class="dropdown-new btn btn-default has-tooltip js-pipeline-dropdown-manual-actions"
       title="Manual job"
       data-toggle="dropdown"
       data-placement="top"
