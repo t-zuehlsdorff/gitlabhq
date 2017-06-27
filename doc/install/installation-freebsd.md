@@ -214,7 +214,7 @@ Check if GitLab and its environment are configured correctly:
 
 ### Compile Assets
 
-    su -l git -c "cd /usr/local/www/gitlab && npm install --production"
+    su -l git -c "cd /usr/local/www/gitlab && yarn install --production --pure-lockfile"
     su -l git -c "cd /usr/local/www/gitlab && rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production"
 
 ### Start Your GitLab Instance
