@@ -163,7 +163,10 @@ module Ci
           commands: "pwd\nrspec",
           coverage_regex: nil,
           tag_list: [],
-          options: {},
+          options: {
+            before_script: ["pwd"],
+            script: ["rspec"]
+          },
           allow_failure: false,
           when: "on_success",
           environment: nil,
@@ -598,8 +601,10 @@ module Ci
     describe "Image and service handling" do
       context "when extended docker configuration is used" do
         it "returns image and service when defined" do
-          config = YAML.dump({ image: { name: "ruby:2.1" },
-                               services: ["mysql", { name: "docker:dind", alias: "docker" }],
+          config = YAML.dump({ image: { name: "ruby:2.1", entrypoint: ["/usr/local/bin/init", "run"] },
+                               services: ["mysql", { name: "docker:dind", alias: "docker",
+                                                     entrypoint: ["/usr/local/bin/init", "run"],
+                                                     command: ["/usr/local/bin/init", "run"] }],
                                before_script: ["pwd"],
                                rspec: { script: "rspec" } })
 
@@ -614,8 +619,12 @@ module Ci
             coverage_regex: nil,
             tag_list: [],
             options: {
-                image: { name: "ruby:2.1" },
-                services: [{ name: "mysql" }, { name: "docker:dind", alias: "docker" }]
+              before_script: ["pwd"],
+              script: ["rspec"],
+              image: { name: "ruby:2.1", entrypoint: ["/usr/local/bin/init", "run"] },
+              services: [{ name: "mysql" },
+                         { name: "docker:dind", alias: "docker", entrypoint: ["/usr/local/bin/init", "run"],
+                           command: ["/usr/local/bin/init", "run"] }]
             },
             allow_failure: false,
             when: "on_success",
@@ -628,8 +637,11 @@ module Ci
           config = YAML.dump({ image: "ruby:2.1",
                                services: ["mysql"],
                                before_script: ["pwd"],
-                               rspec: { image: { name: "ruby:2.5" },
-                                        services: [{ name: "postgresql", alias: "db-pg" }, "docker:dind"], script: "rspec" } })
+                               rspec: { image: { name: "ruby:2.5", entrypoint: ["/usr/local/bin/init", "run"] },
+                                        services: [{ name: "postgresql", alias: "db-pg",
+                                                     entrypoint: ["/usr/local/bin/init", "run"],
+                                                     command: ["/usr/local/bin/init", "run"] }, "docker:dind"],
+                                        script: "rspec" } })
 
           config_processor = GitlabCiYamlProcessor.new(config, path)
 
@@ -642,8 +654,12 @@ module Ci
             coverage_regex: nil,
             tag_list: [],
             options: {
-                image: { name: "ruby:2.5" },
-                services: [{ name: "postgresql", alias: "db-pg" }, { name: "docker:dind" }]
+              before_script: ["pwd"],
+              script: ["rspec"],
+              image: { name: "ruby:2.5", entrypoint: ["/usr/local/bin/init", "run"] },
+              services: [{ name: "postgresql", alias: "db-pg", entrypoint: ["/usr/local/bin/init", "run"],
+                           command: ["/usr/local/bin/init", "run"] },
+                         { name: "docker:dind" }]
             },
             allow_failure: false,
             when: "on_success",
@@ -671,6 +687,8 @@ module Ci
             coverage_regex: nil,
             tag_list: [],
             options: {
+              before_script: ["pwd"],
+              script: ["rspec"],
               image: { name: "ruby:2.1" },
               services: [{ name: "mysql" }, { name: "docker:dind" }]
             },
@@ -698,8 +716,10 @@ module Ci
             coverage_regex: nil,
             tag_list: [],
             options: {
-                image: { name: "ruby:2.5" },
-                services: [{ name: "postgresql" }, { name: "docker:dind" }]
+              before_script: ["pwd"],
+              script: ["rspec"],
+              image: { name: "ruby:2.5" },
+              services: [{ name: "postgresql" }, { name: "docker:dind" }]
             },
             allow_failure: false,
             when: "on_success",
@@ -869,7 +889,8 @@ module Ci
         expect(config_processor.builds_for_stage_and_ref("test", "master").first[:options][:cache]).to eq(
           paths: ["logs/", "binaries/"],
           untracked: true,
-          key: 'key'
+          key: 'key',
+          policy: 'pull-push'
         )
       end
 
@@ -887,7 +908,8 @@ module Ci
         expect(config_processor.builds_for_stage_and_ref("test", "master").first[:options][:cache]).to eq(
           paths: ["logs/", "binaries/"],
           untracked: true,
-          key: 'key'
+          key: 'key',
+          policy: 'pull-push'
         )
       end
 
@@ -906,7 +928,8 @@ module Ci
         expect(config_processor.builds_for_stage_and_ref("test", "master").first[:options][:cache]).to eq(
           paths: ["test/"],
           untracked: false,
-          key: 'local'
+          key: 'local',
+          policy: 'pull-push'
         )
       end
     end
@@ -939,6 +962,8 @@ module Ci
           coverage_regex: nil,
           tag_list: [],
           options: {
+            before_script: ["pwd"],
+            script: ["rspec"],
             image: { name: "ruby:2.1" },
             services: [{ name: "mysql" }],
             artifacts: {
@@ -1150,7 +1175,9 @@ module Ci
             commands: "test",
             coverage_regex: nil,
             tag_list: [],
-            options: {},
+            options: {
+              script: ["test"]
+            },
             when: "on_success",
             allow_failure: false,
             environment: nil,
@@ -1196,7 +1223,9 @@ module Ci
             commands: "execute-script-for-job",
             coverage_regex: nil,
             tag_list: [],
-            options: {},
+            options: {
+              script: ["execute-script-for-job"]
+            },
             when: "on_success",
             allow_failure: false,
             environment: nil,
@@ -1209,7 +1238,9 @@ module Ci
             commands: "execute-script-for-job",
             coverage_regex: nil,
             tag_list: [],
-            options: {},
+            options: {
+              script: ["execute-script-for-job"]
+            },
             when: "on_success",
             allow_failure: false,
             environment: nil,

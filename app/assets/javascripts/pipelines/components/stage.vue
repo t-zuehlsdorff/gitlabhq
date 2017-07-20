@@ -40,7 +40,6 @@ export default {
     return {
       isLoading: false,
       dropdownContent: '',
-      endpoint: this.stage.dropdown_path,
     };
   },
 
@@ -73,9 +72,10 @@ export default {
     },
 
     fetchJobs() {
-      this.$http.get(this.endpoint)
-        .then((response) => {
-          this.dropdownContent = response.json().html;
+      this.$http.get(this.stage.dropdown_path)
+        .then(response => response.json())
+        .then((data) => {
+          this.dropdownContent = data.html;
           this.isLoading = false;
         })
         .catch(() => {

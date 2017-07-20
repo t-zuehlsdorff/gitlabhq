@@ -6,7 +6,7 @@ class Environment < ActiveRecord::Base
 
   belongs_to :project, required: true, validate: true
 
-  has_many :deployments, dependent: :destroy
+  has_many :deployments, dependent: :destroy # rubocop:disable Cop/ActiveRecordDependent
   has_one :last_deployment, -> { order('deployments.id DESC') }, class_name: 'Deployment'
 
   before_validation :nullify_external_url
@@ -45,6 +45,7 @@ class Environment < ActiveRecord::Base
       .to_sql
     order(Gitlab::Database.nulls_first_order("(#{max_deployment_id_sql})", 'ASC'))
   end
+  scope :in_review_folder, -> { where(environment_type: "review") }
 
   state_machine :state, initial: :available do
     event :start do
@@ -217,8 +218,7 @@ class Environment < ActiveRecord::Base
   end
 
   def etag_cache_key
-    Gitlab::Routing.url_helpers.namespace_project_environments_path(
-      project.namespace,
+    Gitlab::Routing.url_helpers.project_environments_path(
       project,
       format: :json)
   end
