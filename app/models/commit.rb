@@ -55,7 +55,8 @@ class Commit
     end
 
     def from_hash(hash, project)
-      new(Gitlab::Git::Commit.new(hash), project)
+      raw_commit = Gitlab::Git::Commit.new(project.repository.raw, hash)
+      new(raw_commit, project)
     end
 
     def valid_hash?(key)
@@ -234,6 +235,14 @@ class Commit
     @statuses[ref] = pipelines.latest_status(ref)
   end
 
+  def signature
+    return @signature if defined?(@signature)
+
+    @signature = gpg_commit.signature
+  end
+
+  delegate :has_signature?, to: :gpg_commit
+
   def revert_branch_name
     "revert-#{short_id}"
   end
@@ -312,21 +321,11 @@ class Commit
   end
 
   def raw_diffs(*args)
-    if Gitlab::GitalyClient.feature_enabled?(:commit_raw_diffs)
-      Gitlab::GitalyClient::CommitService.new(project.repository).diff_from_parent(self, *args)
-    else
-      raw.diffs(*args)
-    end
+    raw.diffs(*args)
   end
 
   def raw_deltas
-    @deltas ||= Gitlab::GitalyClient.migrate(:commit_deltas) do |is_enabled|
-      if is_enabled
-        Gitlab::GitalyClient::CommitService.new(project.repository).commit_deltas(self)
-      else
-        raw.deltas
-      end
-    end
+    @deltas ||= raw.deltas
   end
 
   def diffs(diff_options = nil)
@@ -381,5 +380,9 @@ class Commit
 
   def merged_merge_request_no_cache(user)
     MergeRequestsFinder.new(user, project_id: project.id).find_by(merge_commit_sha: id) if merge_commit?
+  end
+
+  def gpg_commit
+    @gpg_commit ||= Gitlab::Gpg::Commit.new(self)
   end
 end

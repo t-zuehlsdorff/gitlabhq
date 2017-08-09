@@ -7,16 +7,30 @@ describe Projects::IssuesController do
 
   describe "GET #index" do
     context 'external issue tracker' do
-      let!(:service) do
-        create(:custom_issue_tracker_service, project: project, title: 'Custom Issue Tracker', project_url: 'http://test.com')
+      before do
+        sign_in(user)
+        project.add_developer(user)
+        create(:jira_service, project: project)
       end
 
-      it 'redirects to the external issue tracker' do
-        controller.instance_variable_set(:@project, project)
+      context 'when GitLab issues disabled' do
+        it 'returns 404 status' do
+          project.issues_enabled = false
+          project.save!
 
-        get :index, namespace_id: project.namespace, project_id: project
+          get :index, namespace_id: project.namespace, project_id: project
 
-        expect(response).to redirect_to(service.issue_tracker_path)
+          expect(response).to have_http_status(404)
+        end
+      end
+
+      context 'when GitLab issues enabled' do
+        it 'renders the "index" template' do
+          get :index, namespace_id: project.namespace, project_id: project
+
+          expect(response).to have_http_status(200)
+          expect(response).to render_template(:index)
+        end
       end
     end
 
@@ -42,15 +56,7 @@ describe Projects::IssuesController do
 
       it "returns 404 when issues are disabled" do
         project.issues_enabled = false
-        project.save
-
-        get :index, namespace_id: project.namespace, project_id: project
-        expect(response).to have_http_status(404)
-      end
-
-      it "returns 404 when external issue tracker is enabled" do
-        controller.instance_variable_set(:@project, project)
-        allow(project).to receive(:default_issues_tracker?).and_return(false)
+        project.save!
 
         get :index, namespace_id: project.namespace, project_id: project
         expect(response).to have_http_status(404)
@@ -148,14 +154,29 @@ describe Projects::IssuesController do
       before do
         sign_in(user)
         project.team << [user, :developer]
+
+        external = double
+        allow(project).to receive(:external_issue_tracker).and_return(external)
       end
 
-      it 'redirects to the external issue tracker' do
-        controller.instance_variable_set(:@project, project)
+      context 'when GitLab issues disabled' do
+        it 'returns 404 status' do
+          project.issues_enabled = false
+          project.save!
 
-        get :new, namespace_id: project.namespace, project_id: project
+          get :new, namespace_id: project.namespace, project_id: project
 
-        expect(response).to redirect_to('http://test.com')
+          expect(response).to have_http_status(404)
+        end
+      end
+
+      context 'when GitLab issues enabled' do
+        it 'renders the "new" template' do
+          get :new, namespace_id: project.namespace, project_id: project
+
+          expect(response).to have_http_status(200)
+          expect(response).to render_template(:new)
+        end
       end
     end
   end
@@ -213,7 +234,7 @@ describe Projects::IssuesController do
     end
 
     context 'when moving issue to another private project' do
-      let(:another_project) { create(:empty_project, :private) }
+      let(:another_project) { create(:project, :private) }
 
       context 'when user has access to move issue' do
         before do
@@ -573,7 +594,7 @@ describe Projects::IssuesController do
   describe 'POST #create' do
     def post_new_issue(issue_attrs = {}, additional_params = {})
       sign_in(user)
-      project = create(:empty_project, :public)
+      project = create(:project, :public)
       project.team << [user, :developer]
 
       post :create, {
@@ -796,7 +817,7 @@ describe Projects::IssuesController do
     context "when the user is owner" do
       let(:owner)     { create(:user) }
       let(:namespace) { create(:namespace, owner: owner) }
-      let(:project)   { create(:empty_project, namespace: namespace) }
+      let(:project)   { create(:project, namespace: namespace) }
 
       before do
         sign_in(owner)
@@ -806,7 +827,7 @@ describe Projects::IssuesController do
         delete :destroy, namespace_id: project.namespace, project_id: project, id: issue.iid
 
         expect(response).to have_http_status(302)
-        expect(controller).to set_flash[:notice].to(/The issue was successfully deleted\./).now
+        expect(controller).to set_flash[:notice].to(/The issue was successfully deleted\./)
       end
 
       it 'delegates the update of the todos count cache to TodoService' do

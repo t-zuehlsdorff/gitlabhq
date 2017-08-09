@@ -47,6 +47,11 @@ class User < ActiveRecord::Base
   devise :lockable, :recoverable, :rememberable, :trackable,
     :validatable, :omniauthable, :confirmable, :registerable
 
+  # devise overrides #inspect, so we manually use the Referable one
+  def inspect
+    referable_inspect
+  end
+
   # Override Devise::Models::Trackable#update_tracked_fields!
   # to limit database writes to at most once every hour
   def update_tracked_fields!(request)
@@ -76,6 +81,7 @@ class User < ActiveRecord::Base
     where(type.not_eq('DeployKey').or(type.eq(nil)))
   end, dependent: :destroy # rubocop:disable Cop/ActiveRecordDependent
   has_many :deploy_keys, -> { where(type: 'DeployKey') }, dependent: :destroy # rubocop:disable Cop/ActiveRecordDependent
+  has_many :gpg_keys
 
   has_many :emails, dependent: :destroy # rubocop:disable Cop/ActiveRecordDependent
   has_many :personal_access_tokens, dependent: :destroy # rubocop:disable Cop/ActiveRecordDependent
@@ -157,6 +163,7 @@ class User < ActiveRecord::Base
   before_save :ensure_authentication_token, :ensure_incoming_email_token
   before_save :ensure_user_rights_and_limits, if: :external_changed?
   after_save :ensure_namespace_correct
+  after_commit :update_invalid_gpg_signatures, on: :update, if: -> { previous_changes.key?('email') }
   after_initialize :set_projects_limit
   after_destroy :post_destroy_hook
 
@@ -512,12 +519,16 @@ class User < ActiveRecord::Base
     end
   end
 
+  def update_invalid_gpg_signatures
+    gpg_keys.each(&:update_invalid_gpg_signatures)
+  end
+
   # Returns the groups a user has access to
   def authorized_groups
     union = Gitlab::SQL::Union
       .new([groups.select(:id), authorized_projects.select(:namespace_id)])
 
-    Group.where("namespaces.id IN (#{union.to_sql})")
+    Group.where("namespaces.id IN (#{union.to_sql})") # rubocop:disable GitlabSecurity/SqlInjection
   end
 
   # Returns a relation of groups the user has access to, including their parent
@@ -621,7 +632,11 @@ class User < ActiveRecord::Base
   end
 
   def projects_limit_left
-    projects_limit - personal_projects.count
+    projects_limit - personal_projects_count
+  end
+
+  def personal_projects_count
+    @personal_projects_count ||= personal_projects.count
   end
 
   def projects_limit_percent
@@ -635,16 +650,14 @@ class User < ActiveRecord::Base
     events = events.where(project_id: project_ids) if project_ids
 
     # Use the latest event that has not been pushed or merged recently
-    events.recent.find do |event|
-      project = Project.find_by_id(event.project_id)
-      next unless project
+    events.includes(:project).recent.find do |event|
+      next unless event.project.repository.branch_exists?(event.branch_name)
 
-      if project.repository.branch_exists?(event.branch_name)
-        merge_requests = MergeRequest.where("created_at >= ?", event.created_at)
-          .where(source_project_id: project.id,
-                 source_branch: event.branch_name)
-        merge_requests.empty?
-      end
+      merge_requests = MergeRequest.where("created_at >= ?", event.created_at)
+        .where(source_project_id: event.project.id,
+               source_branch: event.branch_name)
+
+      merge_requests.empty?
     end
   end
 
@@ -706,8 +719,8 @@ class User < ActiveRecord::Base
 
   def sanitize_attrs
     %w[username skype linkedin twitter].each do |attr|
-      value = public_send(attr)
-      public_send("#{attr}=", Sanitize.clean(value)) if value.present?
+      value = public_send(attr) # rubocop:disable GitlabSecurity/PublicSend
+      public_send("#{attr}=", Sanitize.clean(value)) if value.present? # rubocop:disable GitlabSecurity/PublicSend
     end
   end
 
@@ -766,7 +779,7 @@ class User < ActiveRecord::Base
 
   def with_defaults
     User.defaults.each do |k, v|
-      public_send("#{k}=", v)
+      public_send("#{k}=", v) # rubocop:disable GitlabSecurity/PublicSend
     end
 
     self
@@ -906,7 +919,7 @@ class User < ActiveRecord::Base
   def ci_authorized_runners
     @ci_authorized_runners ||= begin
       runner_ids = Ci::RunnerProject
-        .where("ci_runner_projects.project_id IN (#{ci_projects_union.to_sql})")
+        .where("ci_runner_projects.project_id IN (#{ci_projects_union.to_sql})") # rubocop:disable GitlabSecurity/SqlInjection
         .select(:runner_id)
       Ci::Runner.specific.where(id: runner_ids)
     end

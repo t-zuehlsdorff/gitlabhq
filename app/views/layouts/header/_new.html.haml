@@ -6,8 +6,8 @@
         %h1.title
           = link_to root_path, title: 'Dashboard' do
             = brand_header_logo
-            %span.hidden-xs
-              GitLab
+            %span.logo-text.hidden-xs
+              = render 'shared/logo_type.svg'
 
         - if current_user
           = render "layouts/nav/new_dashboard"
@@ -38,7 +38,7 @@
                   = icon('tachometer fw')
             %li
               = link_to assigned_issues_dashboard_path, title: 'Issues', aria: { label: "Issues" }, data: {toggle: 'tooltip', placement: 'bottom', container: 'body'} do
-                = icon('hashtag fw')
+                = custom_icon('issues')
                 - issues_count = assigned_issuables_count(:issues)
                 %span.badge.issues-count{ class: ('hidden' if issues_count.zero?) }
                   = number_with_delimiter(issues_count)
@@ -81,6 +81,6 @@
       %button.navbar-toggle.hidden-sm.hidden-md.hidden-lg{ type: 'button' }
         %span.sr-only Toggle navigation
         = icon('ellipsis-v', class: 'js-navbar-toggle-right')
-        = icon('times', class: 'js-navbar-toggle-left', style: 'display: none;')
+        = icon('times', class: 'js-navbar-toggle-left')
 
 = render 'shared/outdated_browser'

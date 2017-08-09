@@ -143,7 +143,7 @@ module Gitlab
         hash = {}
 
         SERIALIZE_KEYS.each do |key|
-          hash[key] = send(key)
+          hash[key] = send(key) # rubocop:disable GitlabSecurity/PublicSend
         end
 
         hash
@@ -221,7 +221,7 @@ module Gitlab
         raw_diff = hash.symbolize_keys
 
         SERIALIZE_KEYS.each do |key|
-          send(:"#{key}=", raw_diff[key.to_sym])
+          send(:"#{key}=", raw_diff[key.to_sym]) # rubocop:disable GitlabSecurity/PublicSend
         end
       end
 
@@ -234,6 +234,8 @@ module Gitlab
         @new_file = diff.from_id == BLANK_SHA
         @renamed_file = diff.from_path != diff.to_path
         @deleted_file = diff.to_id == BLANK_SHA
+
+        collapse! if diff.respond_to?(:collapsed) && diff.collapsed
       end
 
       def prune_diff_if_eligible

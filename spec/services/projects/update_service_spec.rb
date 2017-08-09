@@ -1,11 +1,11 @@
 require 'spec_helper'
 
-describe Projects::UpdateService, '#execute', :services do
+describe Projects::UpdateService, '#execute' do
   let(:user) { create(:user) }
   let(:admin) { create(:admin) }
 
   let(:project) do
-    create(:empty_project, creator: user, namespace: user.namespace)
+    create(:project, creator: user, namespace: user.namespace)
   end
 
   context 'when changing visibility level' do
@@ -59,7 +59,7 @@ describe Projects::UpdateService, '#execute', :services do
   end
 
   describe 'when updating project that has forks' do
-    let(:project) { create(:empty_project, :internal) }
+    let(:project) { create(:project, :internal) }
     let(:forked_project) { create(:forked_project_with_submodules, :internal) }
 
     before do
@@ -101,9 +101,16 @@ describe Projects::UpdateService, '#execute', :services do
 
       expect(Project.find(project.id).default_branch).to eq 'feature'
     end
+
+    it 'does not change a default branch' do
+      # The branch 'unexisted-branch' does not exist.
+      update_project(project, admin, default_branch: 'unexisted-branch')
+
+      expect(Project.find(project.id).default_branch).to eq 'master'
+    end
   end
 
-  context 'when renaming project that contains container images' do
+  context 'when updating a project that contains container images' do
     before do
       stub_container_registry_config(enabled: true)
       stub_container_registry_tags(repository: /image/, tags: %w[rc1])
@@ -115,6 +122,13 @@ describe Projects::UpdateService, '#execute', :services do
 
       expect(result).to include(status: :error)
       expect(result[:message]).to match(/contains container registry tags/)
+    end
+
+    it 'allows to update other settings' do
+      result = update_project(project, admin, public_builds: true)
+
+      expect(result[:status]).to eq :success
+      expect(project.reload.public_builds).to be true
     end
   end
 

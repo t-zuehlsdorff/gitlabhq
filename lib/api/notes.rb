@@ -131,6 +131,7 @@ module API
           note = user_project.notes.find(params[:note_id])
           authorize! :admin_note, note
 
+          status 204
           ::Notes::DestroyService.new(user_project, current_user).execute(note)
         end
       end
@@ -138,7 +139,7 @@ module API
 
     helpers do
       def find_project_noteable(noteables_str, noteable_id)
-        public_send("find_project_#{noteables_str.singularize}", noteable_id)
+        public_send("find_project_#{noteables_str.singularize}", noteable_id) # rubocop:disable GitlabSecurity/PublicSend
       end
 
       def noteable_read_ability_name(noteable)

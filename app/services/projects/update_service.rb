@@ -5,12 +5,12 @@ module Projects
         return error('New visibility level not allowed!')
       end
 
-      if project.has_container_registry_tags?
+      if renaming_project_with_container_registry_tags?
         return error('Cannot rename project because it contains container registry tags!')
       end
 
       if changing_default_branch?
-        project.change_head(params[:default_branch])
+        return error("Could not set the default branch") unless project.change_head(params[:default_branch])
       end
 
       if project.update_attributes(params.except(:default_branch))
@@ -42,6 +42,13 @@ module Projects
       end
 
       true
+    end
+
+    def renaming_project_with_container_registry_tags?
+      new_path = params[:path]
+
+      new_path && new_path != project.path &&
+        project.has_container_registry_tags?
     end
 
     def changing_default_branch?

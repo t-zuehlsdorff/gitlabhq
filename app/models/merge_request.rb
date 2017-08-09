@@ -8,6 +8,7 @@ class MergeRequest < ActiveRecord::Base
   include CreatedAtFilterable
 
   ignore_column :position
+  ignore_column :locked_at
 
   belongs_to :target_project, class_name: "Project"
   belongs_to :source_project, class_name: "Project"
@@ -42,37 +43,26 @@ class MergeRequest < ActiveRecord::Base
 
   state_machine :state, initial: :opened do
     event :close do
-      transition [:reopened, :opened] => :closed
+      transition [:opened] => :closed
     end
 
     event :mark_as_merged do
-      transition [:reopened, :opened, :locked] => :merged
+      transition [:opened, :locked] => :merged
     end
 
     event :reopen do
-      transition closed: :reopened
+      transition closed: :opened
     end
 
     event :lock_mr do
-      transition [:reopened, :opened] => :locked
+      transition [:opened] => :locked
     end
 
     event :unlock_mr do
-      transition locked: :reopened
-    end
-
-    after_transition any => :locked do |merge_request, transition|
-      merge_request.locked_at = Time.now
-      merge_request.save
-    end
-
-    after_transition locked: (any - :locked) do |merge_request, transition|
-      merge_request.locked_at = nil
-      merge_request.save
+      transition locked: :opened
     end
 
     state :opened
-    state :reopened
     state :closed
     state :merged
     state :locked
@@ -172,7 +162,7 @@ class MergeRequest < ActiveRecord::Base
     target = unscoped.where(target_project_id: relation).select(:id)
     union  = Gitlab::SQL::Union.new([source, target])
 
-    where("merge_requests.id IN (#{union.to_sql})")
+    where("merge_requests.id IN (#{union.to_sql})") # rubocop:disable GitlabSecurity/SqlInjection
   end
 
   WIP_REGEX = /\A\s*(\[WIP\]\s*|WIP:\s*|WIP\s+)+\s*/i.freeze
@@ -368,7 +358,7 @@ class MergeRequest < ActiveRecord::Base
       errors.add :branch_conflict, "You can not use same project/branch for source and target"
     end
 
-    if opened? || reopened?
+    if opened?
       similar_mrs = self.target_project.merge_requests.where(source_branch: source_branch, target_branch: target_branch, source_project_id: source_project.try(:id)).opened
       similar_mrs = similar_mrs.where('id not in (?)', self.id) if self.id
       if similar_mrs.any?
@@ -391,6 +381,12 @@ class MergeRequest < ActiveRecord::Base
 
     errors.add :validate_fork,
                'Source project is not a fork of the target project'
+  end
+
+  def merge_ongoing?
+    return false unless merge_jid
+
+    Gitlab::SidekiqStatus.num_running([merge_jid]) > 0
   end
 
   def closed_without_fork?
@@ -596,7 +592,7 @@ class MergeRequest < ActiveRecord::Base
   # running `ReferenceExtractor` on each of them separately.
   # This optimization does not apply to issues from external sources.
   def cache_merge_request_closes_issues!(current_user)
-    return if project.has_external_issue_tracker?
+    return unless project.issues_enabled?
 
     transaction do
       self.merge_requests_closing_issues.delete_all
@@ -631,7 +627,7 @@ class MergeRequest < ActiveRecord::Base
 
   def target_project_path
     if target_project
-      target_project.path_with_namespace
+      target_project.full_path
     else
       "(removed)"
     end
@@ -639,7 +635,7 @@ class MergeRequest < ActiveRecord::Base
 
   def source_project_path
     if source_project
-      source_project.path_with_namespace
+      source_project.full_path
     else
       "(removed)"
     end
@@ -724,12 +720,6 @@ class MergeRequest < ActiveRecord::Base
     else
       source_project.repository.branch_names
     end
-  end
-
-  def locked_long_ago?
-    return false unless locked?
-
-    locked_at.nil? || locked_at < (Time.now - 1.day)
   end
 
   def has_ci?
