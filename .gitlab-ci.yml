@@ -1,4 +1,4 @@
-image: "dev.gitlab.org:5005/gitlab/gitlab-build-images:ruby-2.3.3-golang-1.8-git-2.7-phantomjs-2.1-node-7.1-postgresql-9.6"
+image: "dev.gitlab.org:5005/gitlab/gitlab-build-images:ruby-2.3.3-golang-1.8-git-2.13-phantomjs-2.1-node-7.1-postgresql-9.6"
 
 .default-cache: &default-cache
   key: "ruby-233-with-yarn"
@@ -68,19 +68,6 @@ stages:
     - mysql:latest
     - redis:alpine
 
-.only-if-want-mysql: &only-if-want-mysql
-  only:
-    - /mysql/
-    - /-stable/
-    - master@gitlab-org/gitlab-ce
-    - master@gitlab-org/gitlab-ee
-    - master@gitlab/gitlabhq
-    - master@gitlab/gitlab-ee
-    - tags@gitlab-org/gitlab-ce
-    - tags@gitlab-org/gitlab-ee
-    - tags@gitlab/gitlabhq
-    - tags@gitlab/gitlab-ee
-
 # Skip all jobs except the ones that begin with 'docs/'.
 # Used for commits including ONLY documentation changes.
 # https://docs.gitlab.com/ce/development/writing_documentation.html#testing
@@ -124,7 +111,6 @@ stages:
 .rspec-metadata-mysql: &rspec-metadata-mysql
   <<: *rspec-metadata
   <<: *use-mysql
-  <<: *only-if-want-mysql
   <<: *except-docs
 
 .spinach-metadata: &spinach-metadata
@@ -156,7 +142,6 @@ stages:
 .spinach-metadata-mysql: &spinach-metadata-mysql
   <<: *spinach-metadata
   <<: *use-mysql
-  <<: *only-if-want-mysql
   <<: *except-docs
 
 .only-canonical-masters: &only-canonical-masters
@@ -226,6 +211,7 @@ update-tests-metadata:
 
 flaky-examples-check:
   <<: *dedicated-runner
+  <<: *except-docs
   image: ruby:2.3-alpine
   services: []
   before_script: []
@@ -258,7 +244,7 @@ setup-test-env:
     <<: *default-cache
   script:
     - node --version
-    - yarn install --pure-lockfile --cache-folder .yarn-cache
+    - yarn install --frozen-lockfile --cache-folder .yarn-cache
     - bundle exec rake gettext:po_to_json
     - bundle exec rake gitlab:assets:compile
     - bundle exec ruby -Ispec -e 'require "spec_helper" ; TestEnv.init'
@@ -473,7 +459,6 @@ db:rollback-mysql:
   variables:
     SIZE: "1"
     SETUP_DB: "false"
-    RAILS_ENV: "development"
   script:
     - git clone https://gitlab.com/gitlab-org/gitlab-test.git
        /home/git/repositories/gitlab-org/gitlab-test.git
@@ -508,7 +493,7 @@ gitlab:assets:compile:
     WEBPACK_REPORT: "true"
     NO_COMPRESSION: "true"
   script:
-    - yarn install --pure-lockfile --production --cache-folder .yarn-cache
+    - yarn install --frozen-lockfile --production --cache-folder .yarn-cache
     - bundle exec rake gettext:po_to_json
     - bundle exec rake gitlab:assets:compile
   artifacts:
@@ -522,7 +507,7 @@ karma:
   <<: *dedicated-runner
   <<: *except-docs
   <<: *pull-cache
-  image: "dev.gitlab.org:5005/gitlab/gitlab-build-images:ruby-2.3.3-golang-1.8-git-2.7-chrome-59.0-node-7.1-postgresql-9.6"
+  image: "dev.gitlab.org:5005/gitlab/gitlab-build-images:ruby-2.3.3-golang-1.8-git-2.13-chrome-60.0-node-7.1-postgresql-9.6"
   stage: test
   variables:
     BABEL_ENV: "coverage"

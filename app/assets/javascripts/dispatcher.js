@@ -184,13 +184,13 @@ import initChangesDropdown from './init_changes_dropdown';
           break;
         case 'dashboard:issues':
         case 'dashboard:merge_requests':
-        case 'groups:merge_requests':
           new ProjectSelect();
           initLegacyFilters();
           break;
         case 'groups:issues':
+        case 'groups:merge_requests':
           if (filteredSearchEnabled) {
-            const filteredSearchManager = new gl.FilteredSearchManager('issues');
+            const filteredSearchManager = new gl.FilteredSearchManager(page === 'groups:issues' ? 'issues' : 'merge_requests');
             filteredSearchManager.setup();
           }
           new ProjectSelect();
@@ -414,7 +414,7 @@ import initChangesDropdown from './init_changes_dropdown';
         case 'projects:tree:show':
           shortcut_handler = new ShortcutsNavigation();
 
-          if (UserFeatureHelper.isNewRepo()) break;
+          if (UserFeatureHelper.isNewRepoEnabled()) break;
 
           new TreeView();
           new BlobViewer();
@@ -434,7 +434,7 @@ import initChangesDropdown from './init_changes_dropdown';
           shortcut_handler = true;
           break;
         case 'projects:blob:show':
-          if (UserFeatureHelper.isNewRepo()) break;
+          if (UserFeatureHelper.isNewRepoEnabled()) break;
           new BlobViewer();
           initBlob();
           break;
@@ -644,7 +644,7 @@ import initChangesDropdown from './init_changes_dropdown';
     return Dispatcher;
   })();
 
-  $(function() {
+  $(window).on('load', function() {
     new Dispatcher();
   });
 }).call(window);
